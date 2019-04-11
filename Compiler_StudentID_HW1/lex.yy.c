@@ -386,7 +386,7 @@ struct yy_trans_info
 	};
 static yyconst flex_int16_t yy_accept[132] =
     {   0,
-        0,    0,   53,   53,   50,   50,   61,   60,   59,   58,
+        0,    0,   53,   53,    0,    0,   61,   60,   59,   58,
        22,   49,    5,   60,   23,   24,    3,    1,   29,    2,
         4,   47,   30,    9,   14,    8,   46,   25,   26,   46,
        46,   46,   46,   46,   46,   46,   46,   46,   46,   46,
@@ -1104,20 +1104,22 @@ case 50:
 /* rule 50 can match eol */
 YY_RULE_SETUP
 #line 72 "compiler_hw1.l"
-{ printf("%s", yytext); }
+{
+    printf("%s", yytext);
+    printf(" \t STR_CONST\n");
+}
 	YY_BREAK
 case 51:
 YY_RULE_SETUP
-#line 73 "compiler_hw1.l"
+#line 76 "compiler_hw1.l"
 {
-    printf(" \t STR_CONST\n");
     printf("%s \t QUOTA\n", yytext);
     BEGIN(INITIAL);
 }
 	YY_BREAK
 case 52:
 YY_RULE_SETUP
-#line 78 "compiler_hw1.l"
+#line 80 "compiler_hw1.l"
 {
     printf("%s", yytext);
     BEGIN(comment);
@@ -1125,18 +1127,18 @@ YY_RULE_SETUP
 	YY_BREAK
 case 53:
 YY_RULE_SETUP
-#line 82 "compiler_hw1.l"
+#line 84 "compiler_hw1.l"
 { printf("%s", yytext); }
 	YY_BREAK
 case 54:
 YY_RULE_SETUP
-#line 83 "compiler_hw1.l"
+#line 85 "compiler_hw1.l"
 { printf("%s", yytext); }
 	YY_BREAK
 case 55:
 /* rule 55 can match eol */
 YY_RULE_SETUP
-#line 84 "compiler_hw1.l"
+#line 86 "compiler_hw1.l"
 {
     printf("%s", yytext);
     ++lineCount;
@@ -1145,7 +1147,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 56:
 YY_RULE_SETUP
-#line 89 "compiler_hw1.l"
+#line 91 "compiler_hw1.l"
 {
     commentCount++;
     printf("%s \t C Comment\n", yytext);
@@ -1154,7 +1156,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 57:
 YY_RULE_SETUP
-#line 94 "compiler_hw1.l"
+#line 96 "compiler_hw1.l"
 {
     commentCount++;
     printf("%s \t C++ Comment\n", yytext);
@@ -1163,20 +1165,20 @@ YY_RULE_SETUP
 case 58:
 /* rule 58 can match eol */
 YY_RULE_SETUP
-#line 98 "compiler_hw1.l"
+#line 100 "compiler_hw1.l"
 { lineCount++; }
 	YY_BREAK
 case 59:
 YY_RULE_SETUP
-#line 99 "compiler_hw1.l"
+#line 101 "compiler_hw1.l"
 { ; }
 	YY_BREAK
 case 60:
 YY_RULE_SETUP
-#line 101 "compiler_hw1.l"
+#line 103 "compiler_hw1.l"
 ECHO;
 	YY_BREAK
-#line 1180 "lex.yy.c"
+#line 1182 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(comment):
 case YY_STATE_EOF(str_const):
@@ -2179,7 +2181,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 101 "compiler_hw1.l"
+#line 103 "compiler_hw1.l"
 
 
 

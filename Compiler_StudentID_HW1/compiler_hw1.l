@@ -69,9 +69,11 @@ CPPComment \/\/(.)*
     printf("%s \t QUOTA\n", yytext);
     BEGIN(str_const);
 }
-<str_const>[^\"]*       { printf("%s", yytext); }
-<str_const>"\""         {
+<str_const>[^\"]+       {
+    printf("%s", yytext);
     printf(" \t STR_CONST\n");
+}
+<str_const>"\""         {
     printf("%s \t QUOTA\n", yytext);
     BEGIN(INITIAL);
 }

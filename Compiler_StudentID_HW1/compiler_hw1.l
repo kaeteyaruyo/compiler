@@ -3,6 +3,7 @@
 	#include <stdlib.h>
     int lineCount = 0;
     int commentCount = 0;
+    int hasChar = 0;
 %}
 
 letter [a-zA-Z]
@@ -68,12 +69,19 @@ CPPComment \/\/(.)*
 "\""                    {
     printf("%s \t QUOTA\n", yytext);
     BEGIN(str_const);
+    hasChar = 0;
 }
-<str_const>[^\"]+       {
+<str_const>"\\"[a-z\"\'\\]       {
     printf("%s", yytext);
-    printf(" \t STR_CONST\n");
+    hasChar = 1;
+}
+<str_const>[^\\\"]+       {
+    printf("%s", yytext);
+    hasChar = 1;
 }
 <str_const>"\""         {
+    if(hasChar == 1)
+        printf(" \t STR_CONST\n");
     printf("%s \t QUOTA\n", yytext);
     BEGIN(INITIAL);
 }
@@ -109,16 +117,6 @@ int yywrap(void)
 
 int main(int argc,char *argv[])
 {
-// CComment \/\*(\\.|[^"\\])*\*\/
-// {CComment}      {
-//     char* s = yytext;
-//     int i;
-//     for (i = 0; s[i]; s[i] == '\n' ? i++ : *s++);
-//     commentCount += (i + 1);
-//     lineCount += i;
-//     printf("%s \t C COMMENT\n", yytext);
-// }
-
 	yyin = fopen(argv[1], "r");
 	yylex();
 	printf("\nParse over, the line number is %d.\n\n", lineCount);

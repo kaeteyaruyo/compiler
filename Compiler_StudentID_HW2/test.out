@@ -1,64 +1,205 @@
-lex compiler_hw2.l
-yacc -d -v compiler_hw2.y
-gcc -g lex.yy.c y.tab.c -o myparser
-./myparser < input/zero_error.c
-1: /*
-2:  * 2019 Spring Compiler Course Assignment 2 
-3:  */
-4:
-!!!id: c!!!
-5: float c = 1.5;
----------------
-6:
-!!!id: loop!!!
-!!!id: n!!!
-!!!id: m!!!
-7: bool loop(int n, int m) {
-!!!id: n!!!
-!!!id: m!!!
-8:     while (n > m) {
-!!!id: n!!!
-9:         n--;
-10:     }
-11:     return true;
-12: }
----------------
-13:
-!!!id: main!!!
-14: int main() {
-15:     // Declaration
-!!!id: x!!!
-16:     int x;
-!!!id: i!!!
-17:     int i;
-!!!id: a!!!
-18:     int a = 5;
-!!!id: y!!!
-19:     string y = "She is a girl";
-20:
-21:     print(y); // print
-22:
-23:     // if condition
-!!!id: a!!!
-24:     if (a > 10) {
-!!!id: x!!!
-!!!id: a!!!
-25:         x += a;
-26:         print(x);
-27:     } else {
-!!!id: x!!!
-!!!id: a!!!
-28:         x = a % 10 + 10 * 7; /* Arithmetic */
-29:         print(x);
-30:     }
-!!!id: loop!!!
-!!!id: x!!!
-!!!id: i!!!
-31:     loop(x, i);
-32:     print("Hello World");
-33:
-34:     return 0; 
-35: }
----------------
+void
+VOID
+bla
+(
+int
+INT
+a
+type_specifier ID
+parameter_declarator
+,
+int
+INT
+b
+type_specifier ID
+parameter_list ',' parameter_declarator
+)
+ID '(' parameter_list ')'
+;
+function_declarator
+type_specifier init_declarator ';'
+!!!void bla funciton paramete int b int a!!!
+declaration
+external_declaration
+\n
+\n
+int
+INT
+main
+(
+)
+ID '(' ')'
+{
+\n
+int
+INT
+c
+=
+-
+'-'
+456
+I_CONST
+constant
+primary_expression
+;
+postfix_expression
+unary_operator unary_expression
+unary_expression
+multiplicative_expression
+additive_expression
+relational_expression
+equality_expression
+logical_and_expression
+logical_or_expression
+conditional_expression
+ID '=' assignment_expression
+type_specifier init_declarator ';'
+!!!int c variable 1!!!
+declaration
+block_item
+\n
+while
+(
+c
+ID
+primary_expression
+>
+postfix_expression
+unary_expression
+multiplicative_expression
+additive_expression
+0
+I_CONST
+constant
+primary_expression
+)
+postfix_expression
+unary_expression
+multiplicative_expression
+relational_expression '>' additive_expression
+relational_expression
+equality_expression
+logical_and_expression
+logical_or_expression
+conditional_expression
+assignment_expression
+{
+\n
+int
+INT
+d
+=
+789
+I_CONST
+constant
+primary_expression
+;
+postfix_expression
+unary_expression
+multiplicative_expression
+additive_expression
+relational_expression
+equality_expression
+logical_and_expression
+logical_or_expression
+conditional_expression
+ID '=' assignment_expression
+type_specifier init_declarator ';'
+!!!int d variable 2!!!
+declaration
+block_item
+\n
+}
+'{'  block_item_list '}'
+compound_statement
+WHILE '(' expression ')' statement
+iteration_statement
+statement
+block_item_list block_item
+\n
+return
+0
+I_CONST
+constant
+primary_expression
+;
+postfix_expression
+unary_expression
+multiplicative_expression
+additive_expression
+relational_expression
+equality_expression
+logical_and_expression
+logical_or_expression
+conditional_expression
+assignment_expression
+RETURN expression ';'
+jump_statement
+statement
+block_item_list block_item
+\n
+}
+'{'  block_item_list '}'
+type_specifier function_declarator compound_statement
+!!!int main function!!!
+function_definition
+translation_unit external_declaration
+\n
+\n
+void
+VOID
+bla
+(
+int
+INT
+a
+type_specifier ID
+parameter_declarator
+,
+int
+INT
+b
+type_specifier ID
+parameter_list ',' parameter_declarator
+)
+ID '(' parameter_list ')'
+{
+\n
+int
+INT
+e
+=
+a
+ID
+primary_expression
++
+postfix_expression
+unary_expression
+multiplicative_expression
+b
+ID
+primary_expression
+;
+postfix_expression
+unary_expression
+additive_expression '+' multiplicative_expression
+additive_expression
+relational_expression
+equality_expression
+logical_and_expression
+logical_or_expression
+conditional_expression
+ID '=' assignment_expression
+type_specifier init_declarator ';'
+!!!int e variable 1!!!
+declaration
+block_item
+\n
+}
+'{'  block_item_list '}'
+type_specifier function_declarator compound_statement
+!!!void bla funciton paramete int b int a!!!
+function_definition
+translation_unit external_declaration
 
-Total lines: 35 
+Total lines: 13 

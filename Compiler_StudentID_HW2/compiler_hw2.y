@@ -56,7 +56,7 @@ void dump_symbol();
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
-%type <string> declaration type_specifier init_declarator declarator function_definition parameter_list
+%type <string> declaration type_specifier init_declarator function_declarator function_definition parameter_list parameter_declarator
 
 /* Yacc will start at this nonterminal */
 %start translation_unit
@@ -65,269 +65,273 @@ void dump_symbol();
 %%
 
 translation_unit:
-	external_declaration					{  }
+	external_declaration					{ printf("external_declaration\n"); }
 	|
-	translation_unit external_declaration	{  }
+	translation_unit external_declaration	{ printf("translation_unit external_declaration\n"); }
 	;
 
 external_declaration:
-	declaration 			{ printf("%s %d\n", $1, currentScope); }
+	declaration 			{ printf("!!!%s!!!\n", $1); printf("declaration\n"); }
 	|
-	function_definition 	{ printf("%s %d\n", $1, currentScope); }
+	function_definition 	{ printf("!!!%s!!!\n", $1); printf("function_definition\n"); }
 	;
 
 declaration:
-	type_specifier init_declarator ';' { $$ = $1; strcat($$, " variable "); strcat($$, $2); }
+	type_specifier init_declarator ';' { $$ = $1; strcat($$, " "); strcat($$, $2); printf("type_specifier init_declarator ';'\n"); }
 	;
 
 type_specifier:
-	VOID   { $$ = $1; }
+	VOID   { $$ = $1; printf("VOID\n"); }
 	|
-	INT    { $$ = $1; }
+	INT    { $$ = $1; printf("INT\n"); }
 	|
-	FLOAT  { $$ = $1; }
+	FLOAT  { $$ = $1; printf("FLOAT\n"); }
 	|
-	STRING { $$ = $1; }
+	STRING { $$ = $1; printf("STRING\n"); }
 	|
-	BOOL   { $$ = $1; }
+	BOOL   { $$ = $1; printf("BOOL\n"); }
 	;
 
 init_declarator:
-	declarator 								{ $$ = $1; }
+	ID 								{ sprintf($$, "%s variable %d", $1, currentScope); printf("ID\n"); }
 	|
-	declarator '=' assignment_expression	{ $$ = $1; }
+	ID '=' assignment_expression	{ sprintf($$, "%s variable %d", $1, currentScope); printf("ID '=' assignment_expression\n"); }
+    |
+    function_declarator             { $$ = $1; printf("function_declarator\n"); }
 	;
 
-declarator:
-	ID						   	{ $$ = $1; }
+function_declarator:
+	ID '(' ')'					{ $$ = $1; strcat($$, " function"); printf("ID '(' ')'\n"); }
 	|
-	ID '(' ')'					{ $$ = $1; strcat($$, " function"); }
+	ID '(' identifier_list ')'	{ printf("ID '(' identifier_list ')'\n"); }
 	|
-	ID '(' identifier_list ')'	{  }
-	|
-	ID '(' parameter_list ')'	{ $$ = $1; strcat($$, " function"); strcat($$, " "); strcat($$, $3); }
+	ID '(' parameter_list ')'	{ $$ = $1; strcat($$, " funciton paramete "); strcat($$, $3); printf("ID '(' parameter_list ')'\n"); }
 	;
 
 identifier_list:
-	ID						{  }
+	ID						{ printf("ID\n"); }
 	|
-	identifier_list ',' ID	{  }
+	identifier_list ',' ID	{ printf("identifier_list ',' ID\n"); }
 	;
 
 parameter_list:
-	type_specifier declarator						{ $$ = $1; strcat($2, " parameter"); printf("%s %s %d\n", $1, $2, currentScope); }
+    parameter_declarator					{ $$ = $1; printf("parameter_declarator\n"); }
 	|
-	parameter_list ',' type_specifier declarator	{ $$ = $3; strcat($$, " "); strcat($$, $1); strcat($4, " parameter"); printf("%s %s %d\n", $3, $4, currentScope); }
+	parameter_list ',' parameter_declarator	{ $$ = $3; strcat($$, " "); strcat($$, $1); printf("parameter_list ',' parameter_declarator\n"); }
 	;
 
+parameter_declarator:
+    type_specifier ID   { $$ = $1;  strcat($$, " "); strcat($$, $2); printf("type_specifier ID\n");}
+    ;
+
 assignment_expression:
-	unary_expression assignment_operator assignment_expression	{  }
+	unary_expression assignment_operator assignment_expression	{ printf("unary_expression assignment_operator assignment_expression\n"); }
 	|
-	conditional_expression										{  }
+	conditional_expression										{ printf("conditional_expression\n"); }
 	;
 
 unary_expression:
-	postfix_expression				{  }
+	postfix_expression				{ printf("postfix_expression\n"); }
 	|
-	INC_OP unary_expression			{  }
+	INC_OP unary_expression			{ printf("INC_OP unary_expression\n"); }
 	|
-	DEC_OP unary_expression			{  }
+	DEC_OP unary_expression			{ printf("DEC_OP unary_expression\n"); }
 	|
-	unary_operator unary_expression	{  }
+	unary_operator unary_expression	{ printf("unary_operator unary_expression\n"); }
 	;
 
 postfix_expression:
-	primary_expression									{  }
+	primary_expression									{ printf("primary_expression\n"); }
 	|
-	postfix_expression '(' ')'							{  }
+	postfix_expression '(' ')'							{ printf("postfix_expression '(' ')'\n"); }
 	|
-	postfix_expression '(' argument_expression_list ')'	{  }
+	postfix_expression '(' argument_expression_list ')'	{ printf("postfix_expression '(' argument_expression_list ')'\n"); }
 	|
-	postfix_expression INC_OP							{  }
+	postfix_expression INC_OP							{ printf("postfix_expression INC_OP\n"); }
 	|
-	postfix_expression DEC_OP							{  }
+	postfix_expression DEC_OP							{ printf("postfix_expression DEC_OP\n"); }
 	;
 
 primary_expression:
-	ID					{  }
+	ID					{ printf("ID\n"); }
 	|
-	constant			{  }
+	constant			{ printf("constant\n"); }
 	|
-	'(' expression ')'	{  }
+	'(' expression ')'	{ printf("'(' expression ')'\n"); }
 	;
 
 constant:
-	I_CONST			{  }
+	I_CONST			{ printf("I_CONST\n"); }
 	|
-	F_CONST			{  }
+	F_CONST			{ printf("F_CONST\n"); }
 	|
-	TRUE			{  }
+	TRUE			{ printf("TRUE\n"); }
 	|
-	FALSE			{  }
+	FALSE			{ printf("FALSE\n"); }
 	|
-	STRING_LITERAL	{  }
+	STRING_LITERAL	{ printf("STRING_LITERAL\n"); }
 	;
 
 expression:
-	assignment_expression					{  }
+	assignment_expression					{ printf("assignment_expression\n"); }
 	|
-    expression ',' assignment_expression	{  }
+    expression ',' assignment_expression	{ printf("expression ',' assignment_expression\n"); }
 	;
 
 argument_expression_list:
-	assignment_expression								{  }
+	assignment_expression								{ printf("assignment_expression\n"); }
 	|
-    argument_expression_list ',' assignment_expression	{  }
+    argument_expression_list ',' assignment_expression	{ printf("argument_expression_list ',' assignment_expression\n"); }
 	;
 
 unary_operator:
-	'+'	{  }
+	'+'	{ printf("'+'\n"); }
 	|
-    '-'	{  }
+    '-'	{ printf("'-'\n"); }
 	|
-    '!'	{  }
+    '!'	{ printf("'!'\n"); }
 	;
 
 assignment_operator:
-	'='			{  }
+	'='			{ printf("'='\n"); }
 	|
-    MUL_ASSIGN	{  }
+    MUL_ASSIGN	{ printf("MUL_ASSIGN\n"); }
 	|
-    DIV_ASSIGN	{  }
+    DIV_ASSIGN	{ printf("DIV_ASSIGN\n"); }
 	|
-    MOD_ASSIGN	{  }
+    MOD_ASSIGN	{ printf("MOD_ASSIGN\n"); }
 	|
-    ADD_ASSIGN	{  }
+    ADD_ASSIGN	{ printf("ADD_ASSIGN\n"); }
 	|
-    SUB_ASSIGN	{  }
+    SUB_ASSIGN	{ printf("SUB_ASSIGN\n"); }
 	;
 
 conditional_expression:
-	logical_or_expression											{  }
+	logical_or_expression											{ printf("logical_or_expression\n"); }
 	|
-    logical_or_expression '?' expression ':' conditional_expression	{  }
+    logical_or_expression '?' expression ':' conditional_expression	{ printf("logical_or_expression '?' expression ':' conditional_expression\n"); }
 	;
 
 logical_or_expression:
-	logical_and_expression								{  }
+	logical_and_expression								{ printf("logical_and_expression\n"); }
 	|
-    logical_or_expression OR_OP logical_and_expression	{  }
+    logical_or_expression OR_OP logical_and_expression	{ printf("logical_or_expression OR_OP logical_and_expression\n"); }
 	;
 
 logical_and_expression:
-	equality_expression								    {  }
+	equality_expression								    { printf("equality_expression\n"); }
 	|
-    logical_and_expression AND_OP equality_expression	{  }
+    logical_and_expression AND_OP equality_expression	{ printf("logical_and_expression AND_OP equality_expression\n"); }
 	;
 
 equality_expression:
-	relational_expression							{  }
+	relational_expression							{ printf("relational_expression\n"); }
 	|
-    equality_expression EQ_OP relational_expression	{  }
+    equality_expression EQ_OP relational_expression	{ printf("equality_expression EQ_OP relational_expression\n"); }
 	|
-    equality_expression NE_OP relational_expression	{  }
+    equality_expression NE_OP relational_expression	{ printf("equality_expression NE_OP relational_expression\n"); }
 	;
 
 relational_expression:
-	additive_expression								{  }
+	additive_expression								{ printf("additive_expression\n"); }
 	|
-    relational_expression '<' additive_expression	{  }
+    relational_expression '<' additive_expression	{ printf("relational_expression '<' additive_expression\n"); }
 	|
-    relational_expression '>' additive_expression	{  }
+    relational_expression '>' additive_expression	{ printf("relational_expression '>' additive_expression\n"); }
 	|
-    relational_expression LE_OP additive_expression	{  }
+    relational_expression LE_OP additive_expression	{ printf("relational_expression LE_OP additive_expression\n"); }
 	|
-    relational_expression GE_OP additive_expression	{  }
+    relational_expression GE_OP additive_expression	{ printf("relational_expression GE_OP additive_expression\n"); }
 	;
 
 additive_expression:
-	multiplicative_expression							{  }
+	multiplicative_expression							{ printf("multiplicative_expression\n"); }
 	|
-    additive_expression '+' multiplicative_expression	{  }
+    additive_expression '+' multiplicative_expression	{ printf("additive_expression '+' multiplicative_expression\n"); }
 	|
-    additive_expression '-' multiplicative_expression	{  }
+    additive_expression '-' multiplicative_expression	{ printf("additive_expression '-' multiplicative_expression\n"); }
 	;
 
 multiplicative_expression:
-	unary_expression								{  }
+	unary_expression								{ printf("unary_expression\n"); }
 	|
-    multiplicative_expression '*' unary_expression 	{  }
+    multiplicative_expression '*' unary_expression 	{ printf("multiplicative_expression '*' unary_expression\n"); }
 	|
-    multiplicative_expression '/' unary_expression	{  }
+    multiplicative_expression '/' unary_expression	{ printf("multiplicative_expression '/' unary_expression\n"); }
 	|
-    multiplicative_expression '%' unary_expression	{  }
+    multiplicative_expression '%' unary_expression	{ printf("multiplicative_expression '%' unary_expression\n"); }
 	;
 
 function_definition:
-	type_specifier declarator compound_statement	{ $$ = $1; strcat($$, " "); strcat($$, $2); }
+	type_specifier function_declarator compound_statement	{ $$ = $1; strcat($$, " "); strcat($$, $2); printf("type_specifier function_declarator compound_statement\n"); }
 	;
 
 compound_statement:
-	'{' '}'				    	{  }
+	'{' '}'				    	{ printf("'{' '}'\n"); }
 	|
-    '{'  block_item_list '}'	{  }
+    '{'  block_item_list '}'	{ printf("'{'  block_item_list '}'\n"); }
 	;
 
 block_item_list:
-	block_item					{  }
+	block_item					{ printf("block_item\n"); }
 	|
-    block_item_list block_item	{  }
+    block_item_list block_item	{ printf("block_item_list block_item\n"); }
 	;
 
 block_item:
-	declaration	{ printf("%s %d\n", $1, currentScope); }
+	declaration	{ printf("!!!%s!!!\n", $1); printf("declaration\n"); }
 	|
-    statement	{  }
+    statement	{ printf("statement\n"); }
 	;
 
 statement:
-	compound_statement	    {  }
+	compound_statement	    { printf("compound_statement\n"); }
 	|
-    expression_statement    {  }
+    expression_statement    { printf("expression_statement\n"); }
 	|
-    selection_statement	    {  }
+    selection_statement	    { printf("selection_statement\n"); }
 	|
-    iteration_statement 	{  }
+    iteration_statement 	{ printf("iteration_statement\n"); }
 	|
-    jump_statement		    {  }
+    jump_statement		    { printf("jump_statement\n"); }
 	|
-    print_statement	    	{  }
+    print_statement	    	{ printf("print_statement\n"); }
 	;
 
 expression_statement:
-	';'				{  }
+	';'				{ printf("';'\n"); }
 	|
-    expression ';'	{  }
+    expression ';'	{ printf("expression ';'\n"); }
 	;
 
 selection_statement:
-	IF '(' expression ')' statement %prec LOWER_THAN_ELSE	{  }
+	IF '(' expression ')' statement %prec LOWER_THAN_ELSE	{ printf("IF '(' expression ')' statement %prec LOWER_THAN_ELSE\n"); }
 	|
-    IF '(' expression ')' statement ELSE statement		{  }
+    IF '(' expression ')' statement ELSE statement		{ printf("IF '(' expression ')' statement ELSE statement\n"); }
 	;
 
 iteration_statement:
-	WHILE '(' expression ')' statement											{  }
+	WHILE '(' expression ')' statement											{ printf("WHILE '(' expression ')' statement\n"); }
 	|
-    FOR '(' expression_statement expression_statement ')' statement				{  }
+    FOR '(' expression_statement expression_statement ')' statement				{ printf("FOR '(' expression_statement expression_statement ')' statement\n"); }
 	|
-    FOR '(' expression_statement expression_statement expression ')' statement	{  }
+    FOR '(' expression_statement expression_statement expression ')' statement	{ printf("FOR '(' expression_statement expression_statement expression ')' statement\n"); }
 	|
-    FOR '(' declaration expression_statement ')' statement						{  }
+    FOR '(' declaration expression_statement ')' statement						{ printf("FOR '(' declaration expression_statement ')' statement\n"); }
 	|
-    FOR '(' declaration expression_statement expression ')' statement			{  }
+    FOR '(' declaration expression_statement expression ')' statement			{ printf("FOR '(' declaration expression_statement expression ')' statement\n"); }
 	;
 
 jump_statement:
-	RETURN ';'			    {  }
+	RETURN ';'			    { printf("RETURN ';'\n"); }
 	|
-    RETURN expression ';'	{  }
+    RETURN expression ';'	{ printf("RETURN expression ';'\n"); }
 	;
 
 print_statement:
-	PRINT '(' ID ')' ';'				{  }
+	PRINT '(' ID ')' ';'				{ printf("PRINT '(' ID ')' ';'\n"); }
 	|
-    PRINT '(' STRING_LITERAL ')' ';'	{  }
+    PRINT '(' STRING_LITERAL ')' ';'	{ printf("PRINT '(' STRING_LITERAL ')' ';'\n"); }
 	;
 
 %%
@@ -335,7 +339,7 @@ print_statement:
 /* C code section */
 int main(int argc, char** argv)
 {
-    yylineno = 0;
+    yylineno = 1;
 
     yyparse();
 	printf("\nTotal lines: %d \n", yylineno);
@@ -345,7 +349,6 @@ int main(int argc, char** argv)
 
 void yyerror(char *s)
 {
-	printf("yytext: %s\n", yytext);
     printf("\n|-----------------------------------------------|\n");
     printf("| Error found in line %d: %s\n", yylineno, buf);
     printf("| %s", s);

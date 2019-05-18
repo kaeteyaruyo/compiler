@@ -8,26 +8,28 @@
 8:         int d = 789;
 9:         if(d > 0){
 10:             float f = 456.7;
+11:         } else {
 
 Index     Name      Kind        Type      Scope     Attribute 
 
 0         f         variable    float     3         
 
-11:         } else {
 12:             bool g = true;
+13:         }
 
 Index     Name      Kind        Type      Scope     Attribute 
 
 0         g         variable    bool      3         
 
-13:         }
+14:     }
 
 Index     Name      Kind        Type      Scope     Attribute 
 
 0         d         variable    int       2         
 
-14:     }
-15:     return 0;
+15:     bla(c, c);
+16:     return 0;
+17: }
 
 Index     Name      Kind        Type      Scope     Attribute 
 
@@ -35,16 +37,15 @@ Index     Name      Kind        Type      Scope     Attribute
 1         b         parameter   int       1         
 2         c         variable    int       1         
 
-16: }
-17:
-18: void bla(int a, int b){
-19:     int e = a + b;
+18:
+19: void bla(int a, int b){
+20:     int e = a + b;
+21: }
 
 Index     Name      Kind        Type      Scope     Attribute 
 
 0         e         variable    int       1         
 
-20: }
 
 Index     Name      Kind        Type      Scope     Attribute 
 
@@ -53,4 +54,4 @@ Index     Name      Kind        Type      Scope     Attribute
 2         main      function    int       0         
 
 
-Total lines: 20 
+Total lines: 21 

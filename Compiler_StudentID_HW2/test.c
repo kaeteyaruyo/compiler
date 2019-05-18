@@ -12,6 +12,7 @@ int main(){
             bool g = true;
         }
     }
+    bla(c, c);
     return 0;
 }
 

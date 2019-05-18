@@ -7,6 +7,7 @@ extern YYSTYPE yylval; //YYSTYPE
 extern int currentScope;
 char buf[256];
 char strbuf[256];
+int dumpFlagWithScope = 0;
 
 extern void dump_symbol(int scope);
 
@@ -62,7 +63,7 @@ id			{letter}+({letter}|{digit})*
 "("		{ CONCAT; return '('; }
 ")"		{ CONCAT; return ')'; }
 "{"		{ CONCAT; ++currentScope; return '{'; }
-"}"		{ CONCAT; dump_symbol(currentScope); --currentScope; return '}'; }
+"}"		{ CONCAT; dumpFlagWithScope = currentScope; --currentScope; return '}'; }
 "["		{ CONCAT; return '['; }
 "]"		{ CONCAT; return ']'; }
 ","		{ CONCAT; return ','; }
@@ -131,7 +132,10 @@ id			{letter}+({letter}|{digit})*
 [\n]        {
     if(strlen(buf) != 0){
         printf("%d: %s\n", yylineno, buf);
-        // dump_symbol(currentScope + 1);
+        if(dumpFlagWithScope > 0){
+            dump_symbol(dumpFlagWithScope);
+            dumpFlagWithScope = 0;
+        }
     }
     else{
         printf("%d:\n", yylineno);

@@ -4,12 +4,12 @@ FNAME=compiler_hw2
 EXE=myparser
 
 compile: scanner parser
-	${CC} -g lex.yy.c y.tab.c -o ${EXE}
+	${CC} lex.yy.c y.tab.c -o ${EXE}
 
 scanner:
 	lex ${FNAME}.l
 
-parser: 
+parser:
 	yacc ${YFLAG} ${FNAME}.y
 
 test: compile

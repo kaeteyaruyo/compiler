@@ -6,16 +6,15 @@
 
 typedef struct{
 	char *name;
-	char *kind;
-	char *type;
+	char *entryType;
+	char *dataType;
 	int scope;
-	char *attribute;
+	char *parameter;
 } symbol;
 
 symbol *table[10][30];
-int tableHead[10] = {0};
+int symbolCount[10] = { 0 };
 int currentScope = 0;
-char symbolBuf[512];
 
 extern int yylineno;
 extern int yylex();
@@ -24,11 +23,10 @@ extern char* yytext;   // Get current token from lex
 extern char buf[256];  // Get current code line from lex
 
 /* Symbol table function - you can add new function if needed. */
-int lookup_symbol();
-symbol *create_symbol(char *name, char *kind, char *type, int scope, char *attribute);
-void insert_symbol();
-void dump_symbol();
-
+void create_symbol(char *signature);
+void insert_symbol(symbol *s);
+int lookup_symbol(char *name, int scope);
+void dump_symbol(int scope);
 %}
 
 /* Use variable or self-defined structure to represent
@@ -56,7 +54,8 @@ void dump_symbol();
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
-%type <string> declaration type_specifier init_declarator function_declarator function_definition parameter_list parameter_declarator
+%type <string> variable_declaration function_declaration type_specifier function_declarator
+%type <string> function_definition parameter_list parameter_declarator
 
 /* Yacc will start at this nonterminal */
 %start translation_unit
@@ -65,273 +64,273 @@ void dump_symbol();
 %%
 
 translation_unit:
-	external_declaration					{ printf("external_declaration\n"); }
+	external_declaration			    	{  }
 	|
-	translation_unit external_declaration	{ printf("translation_unit external_declaration\n"); }
+	translation_unit external_declaration	{  }
 	;
 
 external_declaration:
-	declaration 			{ printf("!!!%s!!!\n", $1); printf("declaration\n"); }
+	variable_declaration	{ create_symbol($1); }
 	|
-	function_definition 	{ printf("!!!%s!!!\n", $1); printf("function_definition\n"); }
+	function_declaration 	{ create_symbol($1); }
+	|
+	function_definition 	{ create_symbol($1); }
 	;
 
-declaration:
-	type_specifier init_declarator ';' { $$ = $1; strcat($$, " "); strcat($$, $2); printf("type_specifier init_declarator ';'\n"); }
+variable_declaration:
+	type_specifier ID ';'                           { sprintf($$, "%s %s variable %d", $1, $2, currentScope); }
+    |
+	type_specifier ID '=' assignment_expression ';' { sprintf($$, "%s %s variable %d", $1, $2, currentScope); }
+	;
+
+function_declaration:
+	type_specifier function_declarator ';' { sprintf($$, "%s %s", $1, $2); }
 	;
 
 type_specifier:
-	VOID   { $$ = $1; printf("VOID\n"); }
+	VOID   { $$ = $1; }
 	|
-	INT    { $$ = $1; printf("INT\n"); }
+	INT    { $$ = $1; }
 	|
-	FLOAT  { $$ = $1; printf("FLOAT\n"); }
+	FLOAT  { $$ = $1; }
 	|
-	STRING { $$ = $1; printf("STRING\n"); }
+	STRING { $$ = $1; }
 	|
-	BOOL   { $$ = $1; printf("BOOL\n"); }
-	;
-
-init_declarator:
-	ID 								{ sprintf($$, "%s variable %d", $1, currentScope); printf("ID\n"); }
-	|
-	ID '=' assignment_expression	{ sprintf($$, "%s variable %d", $1, currentScope); printf("ID '=' assignment_expression\n"); }
-    |
-    function_declarator             { $$ = $1; printf("function_declarator\n"); }
+	BOOL   { $$ = $1; }
 	;
 
 function_declarator:
-	ID '(' ')'					{ $$ = $1; strcat($$, " function"); printf("ID '(' ')'\n"); }
+	ID '(' ')'					{ sprintf($$, "%s function", $1); }
 	|
-	ID '(' identifier_list ')'	{ printf("ID '(' identifier_list ')'\n"); }
+	ID '(' identifier_list ')'	{  }
 	|
-	ID '(' parameter_list ')'	{ $$ = $1; strcat($$, " funciton paramete "); strcat($$, $3); printf("ID '(' parameter_list ')'\n"); }
+	ID '(' parameter_list ')'	{ sprintf($$, "%s function parameter %s", $1, $3); }
 	;
 
 identifier_list:
-	ID						{ printf("ID\n"); }
+	ID						{  }
 	|
-	identifier_list ',' ID	{ printf("identifier_list ',' ID\n"); }
+	identifier_list ',' ID	{  }
 	;
 
 parameter_list:
-    parameter_declarator					{ $$ = $1; printf("parameter_declarator\n"); }
+    parameter_declarator					{ $$ = $1; }
 	|
-	parameter_list ',' parameter_declarator	{ $$ = $3; strcat($$, " "); strcat($$, $1); printf("parameter_list ',' parameter_declarator\n"); }
+	parameter_list ',' parameter_declarator	{ sprintf($$, "%s %s", $1, $3); }
 	;
 
 parameter_declarator:
-    type_specifier ID   { $$ = $1;  strcat($$, " "); strcat($$, $2); printf("type_specifier ID\n");}
+    type_specifier ID   { sprintf($$, "%s %s", $1, $2); }
     ;
 
 assignment_expression:
-	unary_expression assignment_operator assignment_expression	{ printf("unary_expression assignment_operator assignment_expression\n"); }
+	unary_expression assignment_operator assignment_expression	{  }
 	|
-	conditional_expression										{ printf("conditional_expression\n"); }
+	conditional_expression										{  }
 	;
 
 unary_expression:
-	postfix_expression				{ printf("postfix_expression\n"); }
+	postfix_expression				{  }
 	|
-	INC_OP unary_expression			{ printf("INC_OP unary_expression\n"); }
+	INC_OP unary_expression			{  }
 	|
-	DEC_OP unary_expression			{ printf("DEC_OP unary_expression\n"); }
+	DEC_OP unary_expression			{  }
 	|
-	unary_operator unary_expression	{ printf("unary_operator unary_expression\n"); }
+	unary_operator unary_expression	{  }
 	;
 
 postfix_expression:
-	primary_expression									{ printf("primary_expression\n"); }
+	primary_expression									{  }
 	|
-	postfix_expression '(' ')'							{ printf("postfix_expression '(' ')'\n"); }
+	postfix_expression '(' ')'							{  }
 	|
-	postfix_expression '(' argument_expression_list ')'	{ printf("postfix_expression '(' argument_expression_list ')'\n"); }
+	postfix_expression '(' argument_expression_list ')'	{  }
 	|
-	postfix_expression INC_OP							{ printf("postfix_expression INC_OP\n"); }
+	postfix_expression INC_OP							{  }
 	|
-	postfix_expression DEC_OP							{ printf("postfix_expression DEC_OP\n"); }
+	postfix_expression DEC_OP							{  }
 	;
 
 primary_expression:
-	ID					{ printf("ID\n"); }
+	ID					{  }
 	|
-	constant			{ printf("constant\n"); }
+	constant			{  }
 	|
-	'(' expression ')'	{ printf("'(' expression ')'\n"); }
+	'(' expression ')'	{  }
 	;
 
 constant:
-	I_CONST			{ printf("I_CONST\n"); }
+	I_CONST			{  }
 	|
-	F_CONST			{ printf("F_CONST\n"); }
+	F_CONST			{  }
 	|
-	TRUE			{ printf("TRUE\n"); }
+	TRUE			{  }
 	|
-	FALSE			{ printf("FALSE\n"); }
+	FALSE			{  }
 	|
-	STRING_LITERAL	{ printf("STRING_LITERAL\n"); }
+	STRING_LITERAL	{  }
 	;
 
 expression:
-	assignment_expression					{ printf("assignment_expression\n"); }
+	assignment_expression					{  }
 	|
-    expression ',' assignment_expression	{ printf("expression ',' assignment_expression\n"); }
+    expression ',' assignment_expression	{  }
 	;
 
 argument_expression_list:
-	assignment_expression								{ printf("assignment_expression\n"); }
+	assignment_expression								{  }
 	|
-    argument_expression_list ',' assignment_expression	{ printf("argument_expression_list ',' assignment_expression\n"); }
+    argument_expression_list ',' assignment_expression	{  }
 	;
 
 unary_operator:
-	'+'	{ printf("'+'\n"); }
+	'+'	{  }
 	|
-    '-'	{ printf("'-'\n"); }
+    '-'	{  }
 	|
-    '!'	{ printf("'!'\n"); }
+    '!'	{  }
 	;
 
 assignment_operator:
-	'='			{ printf("'='\n"); }
+	'='			{  }
 	|
-    MUL_ASSIGN	{ printf("MUL_ASSIGN\n"); }
+    MUL_ASSIGN	{  }
 	|
-    DIV_ASSIGN	{ printf("DIV_ASSIGN\n"); }
+    DIV_ASSIGN	{  }
 	|
-    MOD_ASSIGN	{ printf("MOD_ASSIGN\n"); }
+    MOD_ASSIGN	{  }
 	|
-    ADD_ASSIGN	{ printf("ADD_ASSIGN\n"); }
+    ADD_ASSIGN	{  }
 	|
-    SUB_ASSIGN	{ printf("SUB_ASSIGN\n"); }
+    SUB_ASSIGN	{  }
 	;
 
 conditional_expression:
-	logical_or_expression											{ printf("logical_or_expression\n"); }
+	logical_or_expression											{  }
 	|
-    logical_or_expression '?' expression ':' conditional_expression	{ printf("logical_or_expression '?' expression ':' conditional_expression\n"); }
+    logical_or_expression '?' expression ':' conditional_expression	{  }
 	;
 
 logical_or_expression:
-	logical_and_expression								{ printf("logical_and_expression\n"); }
+	logical_and_expression								{  }
 	|
-    logical_or_expression OR_OP logical_and_expression	{ printf("logical_or_expression OR_OP logical_and_expression\n"); }
+    logical_or_expression OR_OP logical_and_expression	{  }
 	;
 
 logical_and_expression:
-	equality_expression								    { printf("equality_expression\n"); }
+	equality_expression								    {  }
 	|
-    logical_and_expression AND_OP equality_expression	{ printf("logical_and_expression AND_OP equality_expression\n"); }
+    logical_and_expression AND_OP equality_expression	{  }
 	;
 
 equality_expression:
-	relational_expression							{ printf("relational_expression\n"); }
+	relational_expression							{  }
 	|
-    equality_expression EQ_OP relational_expression	{ printf("equality_expression EQ_OP relational_expression\n"); }
+    equality_expression EQ_OP relational_expression	{  }
 	|
-    equality_expression NE_OP relational_expression	{ printf("equality_expression NE_OP relational_expression\n"); }
+    equality_expression NE_OP relational_expression	{  }
 	;
 
 relational_expression:
-	additive_expression								{ printf("additive_expression\n"); }
+	additive_expression								{  }
 	|
-    relational_expression '<' additive_expression	{ printf("relational_expression '<' additive_expression\n"); }
+    relational_expression '<' additive_expression	{  }
 	|
-    relational_expression '>' additive_expression	{ printf("relational_expression '>' additive_expression\n"); }
+    relational_expression '>' additive_expression	{  }
 	|
-    relational_expression LE_OP additive_expression	{ printf("relational_expression LE_OP additive_expression\n"); }
+    relational_expression LE_OP additive_expression	{  }
 	|
-    relational_expression GE_OP additive_expression	{ printf("relational_expression GE_OP additive_expression\n"); }
+    relational_expression GE_OP additive_expression	{  }
 	;
 
 additive_expression:
-	multiplicative_expression							{ printf("multiplicative_expression\n"); }
+	multiplicative_expression							{  }
 	|
-    additive_expression '+' multiplicative_expression	{ printf("additive_expression '+' multiplicative_expression\n"); }
+    additive_expression '+' multiplicative_expression	{  }
 	|
-    additive_expression '-' multiplicative_expression	{ printf("additive_expression '-' multiplicative_expression\n"); }
+    additive_expression '-' multiplicative_expression	{  }
 	;
 
 multiplicative_expression:
-	unary_expression								{ printf("unary_expression\n"); }
+	unary_expression								{  }
 	|
-    multiplicative_expression '*' unary_expression 	{ printf("multiplicative_expression '*' unary_expression\n"); }
+    multiplicative_expression '*' unary_expression 	{  }
 	|
-    multiplicative_expression '/' unary_expression	{ printf("multiplicative_expression '/' unary_expression\n"); }
+    multiplicative_expression '/' unary_expression	{  }
 	|
-    multiplicative_expression '%' unary_expression	{ printf("multiplicative_expression '%' unary_expression\n"); }
+    multiplicative_expression '%' unary_expression	{  }
 	;
 
 function_definition:
-	type_specifier function_declarator compound_statement	{ $$ = $1; strcat($$, " "); strcat($$, $2); printf("type_specifier function_declarator compound_statement\n"); }
+	type_specifier function_declarator compound_statement	{ sprintf($$, "%s %s", $1, $2); }
 	;
 
 compound_statement:
-	'{' '}'				    	{ printf("'{' '}'\n"); }
+	'{' '}'				    	{  }
 	|
-    '{'  block_item_list '}'	{ printf("'{'  block_item_list '}'\n"); }
+    '{'  block_item_list '}'	{  }
 	;
 
 block_item_list:
-	block_item					{ printf("block_item\n"); }
+	block_item					{  }
 	|
-    block_item_list block_item	{ printf("block_item_list block_item\n"); }
+    block_item_list block_item	{  }
 	;
 
 block_item:
-	declaration	{ printf("!!!%s!!!\n", $1); printf("declaration\n"); }
+	variable_declaration	{ create_symbol($1); }
 	|
-    statement	{ printf("statement\n"); }
+    statement              	{  }
 	;
 
 statement:
-	compound_statement	    { printf("compound_statement\n"); }
+	compound_statement	    {  }
 	|
-    expression_statement    { printf("expression_statement\n"); }
+    expression_statement    {  }
 	|
-    selection_statement	    { printf("selection_statement\n"); }
+    selection_statement	    {  }
 	|
-    iteration_statement 	{ printf("iteration_statement\n"); }
+    iteration_statement 	{  }
 	|
-    jump_statement		    { printf("jump_statement\n"); }
+    jump_statement		    {  }
 	|
-    print_statement	    	{ printf("print_statement\n"); }
+    print_statement	    	{  }
 	;
 
 expression_statement:
-	';'				{ printf("';'\n"); }
+	';'				{  }
 	|
-    expression ';'	{ printf("expression ';'\n"); }
+    expression ';'	{  }
 	;
 
 selection_statement:
-	IF '(' expression ')' statement %prec LOWER_THAN_ELSE	{ printf("IF '(' expression ')' statement %prec LOWER_THAN_ELSE\n"); }
+	IF '(' expression ')' statement %prec LOWER_THAN_ELSE	{  }
 	|
-    IF '(' expression ')' statement ELSE statement		{ printf("IF '(' expression ')' statement ELSE statement\n"); }
+    IF '(' expression ')' statement ELSE statement		{  }
 	;
 
 iteration_statement:
-	WHILE '(' expression ')' statement											{ printf("WHILE '(' expression ')' statement\n"); }
+	WHILE '(' expression ')' statement											{  }
 	|
-    FOR '(' expression_statement expression_statement ')' statement				{ printf("FOR '(' expression_statement expression_statement ')' statement\n"); }
+    FOR '(' expression_statement expression_statement ')' statement				{  }
 	|
-    FOR '(' expression_statement expression_statement expression ')' statement	{ printf("FOR '(' expression_statement expression_statement expression ')' statement\n"); }
+    FOR '(' expression_statement expression_statement expression ')' statement	{  }
 	|
-    FOR '(' declaration expression_statement ')' statement						{ printf("FOR '(' declaration expression_statement ')' statement\n"); }
+    FOR '(' variable_declaration expression_statement ')' statement						{  }
 	|
-    FOR '(' declaration expression_statement expression ')' statement			{ printf("FOR '(' declaration expression_statement expression ')' statement\n"); }
+    FOR '(' variable_declaration expression_statement expression ')' statement			{  }
 	;
 
 jump_statement:
-	RETURN ';'			    { printf("RETURN ';'\n"); }
+	RETURN ';'			    {  }
 	|
-    RETURN expression ';'	{ printf("RETURN expression ';'\n"); }
+    RETURN expression ';'	{  }
 	;
 
 print_statement:
-	PRINT '(' ID ')' ';'				{ printf("PRINT '(' ID ')' ';'\n"); }
+	PRINT '(' ID ')' ';'				{  }
 	|
-    PRINT '(' STRING_LITERAL ')' ';'	{ printf("PRINT '(' STRING_LITERAL ')' ';'\n"); }
+    PRINT '(' STRING_LITERAL ')' ';'	{  }
 	;
 
 %%
@@ -339,7 +338,7 @@ print_statement:
 /* C code section */
 int main(int argc, char** argv)
 {
-    yylineno = 1;
+    yylineno = 0;
 
     yyparse();
 	printf("\nTotal lines: %d \n", yylineno);
@@ -355,19 +354,86 @@ void yyerror(char *s)
     printf("\n|-----------------------------------------------|\n\n");
 }
 
-symbol *create_symbol(char *name, char *kind, char *type, int scope, char *attribute){
-	symbol *tmp = malloc(sizeof(symbol));
-	tmp->name = strdup(name);
-	tmp->kind = strdup(kind);
-	tmp->type = strdup(type);
-	tmp->scope = scope;
-	tmp->attribute = strdup(attribute);
-	return tmp;
+void create_symbol(char *signature){
+	char name[64];
+	char entryType[20];
+	char dataType[10];
+	int scope = 0;
+	char parameter[128] = "";
+
+    if(strstr(signature, "variable") != NULL){
+        sscanf(signature, "%s %s %s %d", dataType, name, entryType, &scope);
+    	symbol *tmp = malloc(sizeof(symbol));
+        tmp->name = strdup(name);
+        tmp->entryType = strdup(entryType);
+        tmp->dataType = strdup(dataType);
+        tmp->scope = scope;
+        tmp->parameter = strdup("");
+        insert_symbol(tmp);
+    }
+    else if(strstr(signature, "function") != NULL){
+        sscanf(signature, "%s %s %s", dataType, name, entryType);
+        if(lookup_symbol(name, 0)) return;
+    	symbol *tmp = malloc(sizeof(symbol));
+        tmp->name = strdup(name);
+        tmp->entryType = strdup(entryType);
+        tmp->dataType = strdup(dataType);
+        tmp->scope = 0;
+        if(strstr(signature, "parameter") != NULL){
+            char *token = strtok(strstr(signature, "parameter"), " ");
+            symbol *paraTmp = malloc(sizeof(symbol));
+            paraTmp->dataType = strdup(strtok(NULL, " "));
+            strcat(parameter, paraTmp->dataType);
+            paraTmp->name = strdup(strtok(NULL, " "));
+            paraTmp->entryType = strdup("parameter");
+            paraTmp->parameter = strdup("");
+            paraTmp->scope = 1;
+            insert_symbol(paraTmp);
+            token = strtok(NULL, " ");
+            while(token != NULL){
+                symbol *paraTmp = malloc(sizeof(symbol));
+                paraTmp->dataType = strdup(token);
+                strcat(parameter, ", ");
+                strcat(parameter, paraTmp->dataType);
+                paraTmp->name = strdup(strtok(NULL, " "));
+                paraTmp->entryType = strdup("parameter");
+                paraTmp->scope = 1;
+                paraTmp->parameter = strdup("");
+                insert_symbol(paraTmp);
+                token = strtok(NULL, " ");
+            }
+            tmp->parameter = strdup(parameter);
+        }
+        else{
+            tmp->parameter = strdup("");
+        }
+        insert_symbol(tmp);
+    }
 }
 
-void insert_symbol() {}
-int lookup_symbol() {}
-void dump_symbol() {
-    printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n",
-           "Index", "Name", "Kind", "Type", "Scope", "Attribute");
+void insert_symbol(symbol *s){
+    table[s->scope][symbolCount[s->scope]++] = s;
+}
+
+int lookup_symbol(char *name, int scope){
+    for(int i = 0; i < symbolCount[scope]; ++i){
+        if(!strcmp(table[scope][i]->name, name))
+            return 1;
+    }
+    return 0;
+}
+
+void dump_symbol(int scope) {
+    if(symbolCount[scope] > 0){
+        printf("\n%-10s%-10s%-12s%-10s%-10s%-10s\n\n", "Index", "Name", "Kind", "Type", "Scope", "Attribute");
+        for(int i = 0; i < symbolCount[scope]; ++i){
+            printf("%-10d%-10s%-12s%-10s%-10d%s\n", i, table[scope][i]->name, table[scope][i]->entryType, table[scope][i]->dataType, table[scope][i]->scope, table[scope][i]->parameter);
+        }
+        printf("\n");
+        for(int i = 0; i < symbolCount[scope]; ++i){
+            free(table[scope][i]);
+            table[scope][i] = NULL;
+        }
+        symbolCount[scope] = 0;
+    }
 }

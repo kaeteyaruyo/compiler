@@ -8,6 +8,8 @@ extern int currentScope;
 char buf[256];
 char strbuf[256];
 
+extern void dump_symbol(int scope);
+
 /* This macro is used to record code line */
 #define CONCAT { strncat(buf, yytext, 256 - strlen(buf) - 1); }
 %}
@@ -27,65 +29,65 @@ id			{letter}+({letter}|{digit})*
 %%
 
  /* Arithmetic */
-"+"     { CONCAT; printf("+\n"); return '+'; }
-"-" 	{ CONCAT; printf("-\n"); return '-'; }
-"*" 	{ CONCAT; printf("*\n"); return '*'; }
-"/" 	{ CONCAT; printf("/\n"); return '/'; }
-"%"     { CONCAT; printf("%\n"); return '%'; }
-"++"    { CONCAT; printf("++\n"); return INC_OP; }
-"--"    { CONCAT; printf("--\n"); return DEC_OP; }
+"+"     { CONCAT; return '+'; }
+"-" 	{ CONCAT; return '-'; }
+"*" 	{ CONCAT; return '*'; }
+"/" 	{ CONCAT; return '/'; }
+"%"     { CONCAT; return '%'; }
+"++"    { CONCAT; return INC_OP; }
+"--"    { CONCAT; return DEC_OP; }
 
  /* Relational */
-">"		{ CONCAT; printf(">\n"); return '>'; }
-"<"		{ CONCAT; printf("<\n"); return '<'; }
-">="	{ CONCAT; printf(">=\n"); return GE_OP; }
-"<="	{ CONCAT; printf("<=\n"); return LE_OP; }
-"=="	{ CONCAT; printf("==\n"); return EQ_OP; }
-"!="	{ CONCAT; printf("!=\n"); return NE_OP; }
+">"		{ CONCAT; return '>'; }
+"<"		{ CONCAT; return '<'; }
+">="	{ CONCAT; return GE_OP; }
+"<="	{ CONCAT; return LE_OP; }
+"=="	{ CONCAT; return EQ_OP; }
+"!="	{ CONCAT; return NE_OP; }
 
  /* Assignment */
-"="		{ CONCAT; printf("=\n"); return '='; }
-"+="	{ CONCAT; printf("+=\n"); return ADD_ASSIGN; }
-"-="	{ CONCAT; printf("-=\n"); return SUB_ASSIGN; }
-"*="	{ CONCAT; printf("*=\n"); return MUL_ASSIGN; }
-"/="	{ CONCAT; printf("/=\n"); return DIV_ASSIGN; }
-"%="	{ CONCAT; printf("%=\n"); return MOD_ASSIGN; }
+"="		{ CONCAT; return '='; }
+"+="	{ CONCAT; return ADD_ASSIGN; }
+"-="	{ CONCAT; return SUB_ASSIGN; }
+"*="	{ CONCAT; return MUL_ASSIGN; }
+"/="	{ CONCAT; return DIV_ASSIGN; }
+"%="	{ CONCAT; return MOD_ASSIGN; }
 
  /* Logical */
-"&&"	{ CONCAT; printf("&&\n"); return AND_OP; }
-"||"	{ CONCAT; printf("||\n"); return OR_OP; }
-"!"		{ CONCAT; printf("!\n"); return '!'; }
+"&&"	{ CONCAT; return AND_OP; }
+"||"	{ CONCAT; return OR_OP; }
+"!"		{ CONCAT; return '!'; }
 
  /* Delimiters */
-"("		{ CONCAT; printf("(\n"); return '('; }
-")"		{ CONCAT; printf(")\n"); return ')'; }
-"{"		{ CONCAT; ++currentScope; printf("{\n"); return '{'; }
-"}"		{ CONCAT; --currentScope; printf("}\n"); return '}'; }
-"["		{ CONCAT; printf("[\n"); return '['; }
-"]"		{ CONCAT; printf("]\n"); return ']'; }
-","		{ CONCAT; printf(",\n"); return ','; }
+"("		{ CONCAT; return '('; }
+")"		{ CONCAT; return ')'; }
+"{"		{ CONCAT; ++currentScope; return '{'; }
+"}"		{ CONCAT; dump_symbol(currentScope); --currentScope; return '}'; }
+"["		{ CONCAT; return '['; }
+"]"		{ CONCAT; return ']'; }
+","		{ CONCAT; return ','; }
 
  /* Print Keywords */
-"print"		{ CONCAT; printf("print\n"); return PRINT; }
+"print"		{ CONCAT; return PRINT; }
 
  /* Condition and Loop Keywords */
-"if"		{ CONCAT; printf("if\n"); return IF; }
-"else"		{ CONCAT; printf("else\n"); return ELSE; }
-"for"		{ CONCAT; printf("for\n"); return FOR; }
-"while"		{ CONCAT; printf("while\n"); return WHILE; }
+"if"		{ CONCAT; return IF; }
+"else"		{ CONCAT; return ELSE; }
+"for"		{ CONCAT; return FOR; }
+"while"		{ CONCAT; return WHILE; }
 
  /* Declaration Keywords */
-"void"		{ CONCAT; printf("void\n"); yylval.string = strdup(yytext); return VOID; }
-"int"		{ CONCAT; printf("int\n"); yylval.string = strdup(yytext); return INT; }
-"float"  	{ CONCAT; printf("float\n"); yylval.string = strdup(yytext); return FLOAT; }
-"string"  	{ CONCAT; printf("string\n"); yylval.string = strdup(yytext); return STRING; }
-"bool"  	{ CONCAT; printf("bool\n"); yylval.string = strdup(yytext); return BOOL; }
+"void"		{ CONCAT; yylval.string = strdup(yytext); return VOID; }
+"int"		{ CONCAT; yylval.string = strdup(yytext); return INT; }
+"float"  	{ CONCAT; yylval.string = strdup(yytext); return FLOAT; }
+"string"  	{ CONCAT; yylval.string = strdup(yytext); return STRING; }
+"bool"  	{ CONCAT; yylval.string = strdup(yytext); return BOOL; }
 
  /* boolean Keywords */
-"true"      { CONCAT; printf("true\n"); yylval.boolean = 1; return TRUE; }
-"false"     { CONCAT; printf("false\n"); yylval.boolean = 0; return FALSE; }
+"true"      { CONCAT; yylval.boolean = 1; return TRUE; }
+"false"     { CONCAT; yylval.boolean = 0; return FALSE; }
 
-"return"    { CONCAT; printf("return\n"); return RETURN; }
+"return"    { CONCAT; return RETURN; }
 
  /* String Constant */
 \"				        {
@@ -104,13 +106,16 @@ id			{letter}+({letter}|{digit})*
 <STRING_STATE>[^"]*		{ CONCAT; strcat(strbuf, yytext); }
 
  /* Number Constant */
-{integer}	{ CONCAT; printf("%s\n", yytext); yylval.i_val = atoi(yytext); return I_CONST; }
-{float}	    { CONCAT; printf("%s\n", yytext); yylval.f_val = atof(yytext); return F_CONST; }
+{integer}	{ CONCAT; yylval.i_val = atoi(yytext); return I_CONST; }
+{float}	    { CONCAT; yylval.f_val = atof(yytext); return F_CONST; }
 
  /* C type Comment */
 "/*"				{ BEGIN COMMENT; CONCAT; }
 <COMMENT>[^*\n]+	{ CONCAT; }
-<COMMENT>\n			{ printf("%d: %s\n", yylineno, buf); memset(buf, 0, sizeof(buf)); }
+<COMMENT>\n			{
+    printf("%d: %s\n", yylineno, buf);
+    memset(buf, 0, sizeof(buf));
+}
 <COMMENT>"*"		{ CONCAT; }
 <COMMENT>"*/"		{ BEGIN INITIAL; CONCAT; }
 
@@ -118,23 +123,24 @@ id			{letter}+({letter}|{digit})*
 \/\/.*	{ CONCAT; }
 
  /* Variable ID */
- {id}       { CONCAT; printf("%s\n", yytext); yylval.string = strdup(yytext); return ID; }
+ {id}       { CONCAT; yylval.string = strdup(yytext); return ID; }
 
  /* others */
 
-[;]         { CONCAT; printf(";\n"); return ';'; }
+[;]         { CONCAT; return ';'; }
 [\n]        {
-    // if(strlen(buf) != 0){
-    //     printf("%d: %s\n", yylineno, buf);
-    // }
-    // else{
-    //     printf("%d:\n", yylineno);
-    // }
-    printf("\\n\n");
+    if(strlen(buf) != 0){
+        printf("%d: %s\n", yylineno, buf);
+        // dump_symbol(currentScope + 1);
+    }
+    else{
+        printf("%d:\n", yylineno);
+    }
     memset(buf, 0, sizeof(buf));
 }
 [ \t]		{ CONCAT; } /* Ignore */
 [^ \t\n] 	{ CONCAT; } /* Ignore other charactor sets */
+<<eof>>     { dump_symbol(0); dump_symbol(1); return 0; }
 
 %%
 

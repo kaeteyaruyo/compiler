@@ -1,205 +1,56 @@
-void
-VOID
-bla
-(
-int
-INT
-a
-type_specifier ID
-parameter_declarator
-,
-int
-INT
-b
-type_specifier ID
-parameter_list ',' parameter_declarator
-)
-ID '(' parameter_list ')'
-;
-function_declarator
-type_specifier init_declarator ';'
-!!!void bla funciton paramete int b int a!!!
-declaration
-external_declaration
-\n
-\n
-int
-INT
-main
-(
-)
-ID '(' ')'
-{
-\n
-int
-INT
-c
-=
--
-'-'
-456
-I_CONST
-constant
-primary_expression
-;
-postfix_expression
-unary_operator unary_expression
-unary_expression
-multiplicative_expression
-additive_expression
-relational_expression
-equality_expression
-logical_and_expression
-logical_or_expression
-conditional_expression
-ID '=' assignment_expression
-type_specifier init_declarator ';'
-!!!int c variable 1!!!
-declaration
-block_item
-\n
-while
-(
-c
-ID
-primary_expression
->
-postfix_expression
-unary_expression
-multiplicative_expression
-additive_expression
-0
-I_CONST
-constant
-primary_expression
-)
-postfix_expression
-unary_expression
-multiplicative_expression
-relational_expression '>' additive_expression
-relational_expression
-equality_expression
-logical_and_expression
-logical_or_expression
-conditional_expression
-assignment_expression
-{
-\n
-int
-INT
-d
-=
-789
-I_CONST
-constant
-primary_expression
-;
-postfix_expression
-unary_expression
-multiplicative_expression
-additive_expression
-relational_expression
-equality_expression
-logical_and_expression
-logical_or_expression
-conditional_expression
-ID '=' assignment_expression
-type_specifier init_declarator ';'
-!!!int d variable 2!!!
-declaration
-block_item
-\n
-}
-'{'  block_item_list '}'
-compound_statement
-WHILE '(' expression ')' statement
-iteration_statement
-statement
-block_item_list block_item
-\n
-return
-0
-I_CONST
-constant
-primary_expression
-;
-postfix_expression
-unary_expression
-multiplicative_expression
-additive_expression
-relational_expression
-equality_expression
-logical_and_expression
-logical_or_expression
-conditional_expression
-assignment_expression
-RETURN expression ';'
-jump_statement
-statement
-block_item_list block_item
-\n
-}
-'{'  block_item_list '}'
-type_specifier function_declarator compound_statement
-!!!int main function!!!
-function_definition
-translation_unit external_declaration
-\n
-\n
-void
-VOID
-bla
-(
-int
-INT
-a
-type_specifier ID
-parameter_declarator
-,
-int
-INT
-b
-type_specifier ID
-parameter_list ',' parameter_declarator
-)
-ID '(' parameter_list ')'
-{
-\n
-int
-INT
-e
-=
-a
-ID
-primary_expression
-+
-postfix_expression
-unary_expression
-multiplicative_expression
-b
-ID
-primary_expression
-;
-postfix_expression
-unary_expression
-additive_expression '+' multiplicative_expression
-additive_expression
-relational_expression
-equality_expression
-logical_and_expression
-logical_or_expression
-conditional_expression
-ID '=' assignment_expression
-type_specifier init_declarator ';'
-!!!int e variable 1!!!
-declaration
-block_item
-\n
-}
-'{'  block_item_list '}'
-type_specifier function_declarator compound_statement
-!!!void bla funciton paramete int b int a!!!
-function_definition
-translation_unit external_declaration
+1: void bla(int a, int b);
+2:
+3: string a = "123";
+4:
+5: int main(){
+6:     int c = -456;
+7:     while(c > 0){
+8:         int d = 789;
+9:         if(d > 0){
+10:             float f = 456.7;
 
-Total lines: 13 
+Index     Name      Kind        Type      Scope     Attribute 
+
+0         f         variable    float     3         
+
+11:         } else {
+12:             bool g = true;
+
+Index     Name      Kind        Type      Scope     Attribute 
+
+0         g         variable    bool      3         
+
+13:         }
+
+Index     Name      Kind        Type      Scope     Attribute 
+
+0         d         variable    int       2         
+
+14:     }
+15:     return 0;
+
+Index     Name      Kind        Type      Scope     Attribute 
+
+0         a         parameter   int       1         
+1         b         parameter   int       1         
+2         c         variable    int       1         
+
+16: }
+17:
+18: void bla(int a, int b){
+19:     int e = a + b;
+
+Index     Name      Kind        Type      Scope     Attribute 
+
+0         e         variable    int       1         
+
+20: }
+
+Index     Name      Kind        Type      Scope     Attribute 
+
+0         bla       function    void      0         int, int
+1         a         variable    string    0         
+2         main      function    int       0         
+
+
+Total lines: 20 

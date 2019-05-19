@@ -169,14 +169,14 @@ postfix_expression:
 	primary_expression {  }
 	|
 	ID '(' ')' {
-        if(!lookup_symbol($1, currentScope)){
+        if(!lookup_symbol($1, 0)){
             errorFlag = 1;
             sprintf(errorMsg, "Undeclared function %s", $1);
         }
     }
 	|
 	ID '(' argument_expression_list ')'	{
-        if(!lookup_symbol($1, currentScope)){
+        if(!lookup_symbol($1, 0)){
             errorFlag = 1;
             sprintf(errorMsg, "Undeclared function %s", $1);
         }
@@ -189,7 +189,11 @@ postfix_expression:
 
 primary_expression:
 	ID					{
-        if(!lookup_symbol($1, currentScope)){
+        int found = 0;
+        for(int i = currentScope; i >= 0; --i){
+            found = lookup_symbol($1, i);
+        }
+        if(!found){
             errorFlag = 1;
             sprintf(errorMsg, "Undeclared variable %s", $1);
         }
@@ -348,11 +352,14 @@ jump_statement:
 
 print_statement:
 	PRINT '(' ID ')' ';'				{
-        if(!lookup_symbol($3, currentScope)){
+        int found = 0;
+        for(int i = currentScope; i >= 0; --i){
+            found = lookup_symbol($3, i);
+        }
+        if(!found){
             errorFlag = 1;
             sprintf(errorMsg, "Undeclared variable %s", $3);
         }
-
     }
 	|
     PRINT '(' STRING_LITERAL ')' ';'	{  }
@@ -377,6 +384,13 @@ void yyerror(char *s)
         }
         else{
             printf("%d:\n", yylineno + 1);
+        }
+        if(errorFlag > 0){
+            printf("\n|-----------------------------------------------|\n");
+            printf("| Error found in line %d: %s\n", yylineno + 1, buf);
+            printf("| %s", errorMsg);
+            printf("\n|-----------------------------------------------|\n\n");
+            errorFlag = 0;
         }
         printf("\n|-----------------------------------------------|\n");
         printf("| Error found in line %d: %s\n", yylineno + 1, buf);
@@ -418,7 +432,7 @@ void create_symbol(char *signature){
         sscanf(signature, "%s %s %s", dataType, name, entryType);
         if(lookup_symbol(name, currentScope)){
             errorFlag = 1;
-            sprintf(errorMsg, "Redeclared variable %s", name);
+            sprintf(errorMsg, "Redeclared function %s", name);
             return;
         }
     	symbol *tmp = malloc(sizeof(symbol));
@@ -464,11 +478,9 @@ void insert_symbol(symbol *s){
 }
 
 int lookup_symbol(char *name, int scope){
-    for(int j = scope; j >= 0; --j){
-        for(int i = 0; i < symbolCount[j]; ++i){
-            if(!strcmp(table[j][i]->name, name))
-                return 1;
-        }
+    for(int i = 0; i < symbolCount[scope]; ++i){
+        if(!strcmp(table[scope][i]->name, name))
+            return 1;
     }
     return 0;
 }

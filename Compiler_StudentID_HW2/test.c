@@ -9,11 +9,11 @@ string a = "123";
 int main(){
     int c = -456;
     while(c > 0){
-        int d = 789;
-        if(d > 0){
-            float f = 456.7;
+        int c = 789;
+        if(c > 0){
+            float c = 456.7;
         } else {
-            bool g = true;
+            bool c = true;
         }
     }
     bla(c, c);

@@ -1,57 +1,33 @@
-1: void bla(int a, int b);
-2:
-3: string a = "123";
+1: /*
+2:  * 2019 Spring Compiler Course Assignment 2 
+3:  */
 4:
-5: int main(){
-6:     int c = -456;
-7:     while(c > 0){
-8:         int d = 789;
-9:         if(d > 0){
-10:             float f = 456.7;
-11:         } else {
+5: float c = 1.5;
+6:
+7: bool loop(int n, int m) {
+8:     while (n > m) {
+9:         n--;
+10:     }
+11:     return true;
+12: }
 
 Index     Name      Kind        Type      Scope     Attribute 
 
-0         f         variable    float     3         
+0         n         parameter   int       1         
+1         m         parameter   int       1         
 
-12:             bool g = true;
-13:         }
+13:
+14: int main() {
+15:     // Declaration
+16:     int x;
+17:     int i;
+18:     int a = 5;
+19:
+20:     // syntactical error
+21:     iff (a > 10) {
 
-Index     Name      Kind        Type      Scope     Attribute 
+|-----------------------------------------------|
+| Error found in line 21:     iff (a > 10) {
+| syntax error
+|-----------------------------------------------|
 
-0         g         variable    bool      3         
-
-14:     }
-
-Index     Name      Kind        Type      Scope     Attribute 
-
-0         d         variable    int       2         
-
-15:     bla(c, c);
-16:     return 0;
-17: }
-
-Index     Name      Kind        Type      Scope     Attribute 
-
-0         a         parameter   int       1         
-1         b         parameter   int       1         
-2         c         variable    int       1         
-
-18:
-19: void bla(int a, int b){
-20:     int e = a + b;
-21: }
-
-Index     Name      Kind        Type      Scope     Attribute 
-
-0         e         variable    int       1         
-
-
-Index     Name      Kind        Type      Scope     Attribute 
-
-0         bla       function    void      0         int, int
-1         a         variable    string    0         
-2         main      function    int       0         
-
-
-Total lines: 21 

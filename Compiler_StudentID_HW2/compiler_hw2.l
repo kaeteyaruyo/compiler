@@ -10,6 +10,9 @@ char strbuf[256];
 int dumpFlagWithScope = 0;
 
 extern void dump_symbol(int scope);
+extern void yyerror(char *s);
+extern int errorFlag;
+extern char errorMsg[256];
 
 /* This macro is used to record code line */
 #define CONCAT { strncat(buf, yytext, 256 - strlen(buf) - 1); }
@@ -132,6 +135,10 @@ id			{letter}+({letter}|{digit})*
 [\n]        {
     if(strlen(buf) != 0){
         printf("%d: %s\n", yylineno, buf);
+        if(errorFlag > 0){
+            yyerror(errorMsg);
+            errorFlag = 0;
+        }
         if(dumpFlagWithScope > 0){
             dump_symbol(dumpFlagWithScope);
             dumpFlagWithScope = 0;
@@ -144,7 +151,7 @@ id			{letter}+({letter}|{digit})*
 }
 [ \t]		{ CONCAT; } /* Ignore */
 [^ \t\n] 	{ CONCAT; } /* Ignore other charactor sets */
-<<eof>>     { dump_symbol(0); dump_symbol(1); return 0; }
+<<eof>>     { dump_symbol(0); dump_symbol(1); printf("\nTotal lines: %d \n", yylineno); return 0; }
 
 %%
 

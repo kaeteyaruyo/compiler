@@ -15,6 +15,8 @@ typedef struct{
 symbol *table[10][30];
 int symbolCount[10] = { 0 };
 int currentScope = 0;
+int errorFlag = 0;
+char errorMsg[256] = "";
 
 extern int yylineno;
 extern int yylex();
@@ -54,8 +56,7 @@ void dump_symbol(int scope);
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
-%type <string> variable_declaration function_declaration type_specifier function_declarator
-%type <string> function_definition parameter_list parameter_declarator
+%type <string> variable_declaration function_declarator parameter_list parameter_declarator type_specifier
 
 /* Yacc will start at this nonterminal */
 %start translation_unit
@@ -70,11 +71,11 @@ translation_unit:
 	;
 
 external_declaration:
-	variable_declaration	{ create_symbol($1); }
+	variable_declaration                    { create_symbol($1); }
 	|
-	function_declaration 	{ create_symbol($1); }
+	function_declarator ';' 	            { create_symbol($1); }
 	|
-	function_definition 	{ create_symbol($1); }
+	function_declarator compound_statement 	{ create_symbol($1); }
 	;
 
 variable_declaration:
@@ -83,9 +84,14 @@ variable_declaration:
 	type_specifier ID '=' assignment_expression ';' { sprintf($$, "%s %s variable %d", $1, $2, currentScope); }
 	;
 
-function_declaration:
-	type_specifier function_declarator ';' { sprintf($$, "%s %s", $1, $2); }
-	;
+function_declarator:
+	type_specifier ID '(' ')'	                { sprintf($$, "%s %s function", $1, $2); }
+    |
+	type_specifier ID '(' parameter_list ')'	{
+        sprintf($$, "%s %s function parameter %s", $1, $2, $4);
+        create_symbol($4);
+    }
+    ;
 
 type_specifier:
 	VOID   { $$ = $1; }
@@ -99,20 +105,6 @@ type_specifier:
 	BOOL   { $$ = $1; }
 	;
 
-function_declarator:
-	ID '(' ')'					{ sprintf($$, "%s function", $1); }
-	|
-	ID '(' identifier_list ')'	{  }
-	|
-	ID '(' parameter_list ')'	{ sprintf($$, "%s function parameter %s", $1, $3); }
-	;
-
-identifier_list:
-	ID						{  }
-	|
-	identifier_list ',' ID	{  }
-	;
-
 parameter_list:
     parameter_declarator					{ $$ = $1; }
 	|
@@ -122,6 +114,26 @@ parameter_list:
 parameter_declarator:
     type_specifier ID   { sprintf($$, "%s %s", $1, $2); }
     ;
+
+compound_statement:
+	'{' '}'				    	{  }
+	|
+    '{'  block_item_list '}'	{  }
+	;
+
+block_item_list:
+	block_item					{  }
+	|
+    block_item_list block_item	{  }
+	;
+
+block_item:
+	variable_declaration	{
+        create_symbol($1);
+    }
+	|
+    statement              	{  }
+	;
 
 assignment_expression:
 	unary_expression assignment_operator assignment_expression	{  }
@@ -140,19 +152,34 @@ unary_expression:
 	;
 
 postfix_expression:
-	primary_expression									{  }
+	primary_expression {  }
 	|
-	postfix_expression '(' ')'							{  }
+	ID '(' ')' {
+        if(!lookup_symbol($1, currentScope)){
+            errorFlag = 1;
+            sprintf(errorMsg, "Undeclared function %s", $1);
+        }
+    }
 	|
-	postfix_expression '(' argument_expression_list ')'	{  }
+	ID '(' argument_expression_list ')'	{
+        if(!lookup_symbol($1, currentScope)){
+            errorFlag = 1;
+            sprintf(errorMsg, "Undeclared function %s", $1);
+        }
+    }
 	|
-	postfix_expression INC_OP							{  }
+	postfix_expression INC_OP {  }
 	|
-	postfix_expression DEC_OP							{  }
+	postfix_expression DEC_OP {  }
 	;
 
 primary_expression:
-	ID					{  }
+	ID					{
+        if(!lookup_symbol($1, currentScope)){
+            errorFlag = 1;
+            sprintf(errorMsg, "Undeclared variable %s", $1);
+        }
+    }
 	|
 	constant			{  }
 	|
@@ -261,28 +288,6 @@ multiplicative_expression:
     multiplicative_expression '%' unary_expression	{  }
 	;
 
-function_definition:
-	type_specifier function_declarator compound_statement	{ sprintf($$, "%s %s", $1, $2); }
-	;
-
-compound_statement:
-	'{' '}'				    	{  }
-	|
-    '{'  block_item_list '}'	{  }
-	;
-
-block_item_list:
-	block_item					{  }
-	|
-    block_item_list block_item	{  }
-	;
-
-block_item:
-	variable_declaration	{ create_symbol($1); }
-	|
-    statement              	{  }
-	;
-
 statement:
 	compound_statement	    {  }
 	|
@@ -328,7 +333,13 @@ jump_statement:
 	;
 
 print_statement:
-	PRINT '(' ID ')' ';'				{  }
+	PRINT '(' ID ')' ';'				{
+        if(!lookup_symbol($3, currentScope)){
+            errorFlag = 1;
+            sprintf(errorMsg, "Undeclared variable %s", $3);
+        }
+
+    }
 	|
     PRINT '(' STRING_LITERAL ')' ';'	{  }
 	;
@@ -339,19 +350,32 @@ print_statement:
 int main(int argc, char** argv)
 {
     yylineno = 0;
-
     yyparse();
-	printf("\nTotal lines: %d \n", yylineno);
 
     return 0;
 }
 
 void yyerror(char *s)
 {
-    printf("\n|-----------------------------------------------|\n");
-    printf("| Error found in line %d: %s\n", yylineno, buf);
-    printf("| %s", s);
-    printf("\n|-----------------------------------------------|\n\n");
+    if(!strcmp(s, "syntax error")){
+        if(strlen(buf) != 0){
+            printf("%d: %s\n", yylineno + 1, buf);
+        }
+        else{
+            printf("%d:\n", yylineno + 1);
+        }
+        printf("\n|-----------------------------------------------|\n");
+        printf("| Error found in line %d: %s\n", yylineno + 1, buf);
+        printf("| %s", s);
+        printf("\n|-----------------------------------------------|\n\n");
+    }
+    else{
+        printf("\n|-----------------------------------------------|\n");
+        printf("| Error found in line %d: %s\n", yylineno, buf);
+        printf("| %s", s);
+        printf("\n|-----------------------------------------------|\n\n");
+
+    }
 }
 
 void create_symbol(char *signature){
@@ -363,6 +387,11 @@ void create_symbol(char *signature){
 
     if(strstr(signature, "variable") != NULL){
         sscanf(signature, "%s %s %s %d", dataType, name, entryType, &scope);
+        if(lookup_symbol(name, currentScope)){
+            errorFlag = 1;
+            sprintf(errorMsg, "Redeclared variable %s", name);
+            return;
+        }
     	symbol *tmp = malloc(sizeof(symbol));
         tmp->name = strdup(name);
         tmp->entryType = strdup(entryType);
@@ -373,7 +402,11 @@ void create_symbol(char *signature){
     }
     else if(strstr(signature, "function") != NULL){
         sscanf(signature, "%s %s %s", dataType, name, entryType);
-        if(lookup_symbol(name, 0)) return;
+        if(lookup_symbol(name, currentScope)){
+            errorFlag = 1;
+            sprintf(errorMsg, "Redeclared variable %s", name);
+            return;
+        }
     	symbol *tmp = malloc(sizeof(symbol));
         tmp->name = strdup(name);
         tmp->entryType = strdup(entryType);
@@ -381,25 +414,13 @@ void create_symbol(char *signature){
         tmp->scope = 0;
         if(strstr(signature, "parameter") != NULL){
             char *token = strtok(strstr(signature, "parameter"), " ");
-            symbol *paraTmp = malloc(sizeof(symbol));
-            paraTmp->dataType = strdup(strtok(NULL, " "));
-            strcat(parameter, paraTmp->dataType);
-            paraTmp->name = strdup(strtok(NULL, " "));
-            paraTmp->entryType = strdup("parameter");
-            paraTmp->parameter = strdup("");
-            paraTmp->scope = 1;
-            insert_symbol(paraTmp);
+            strcat(parameter, strtok(NULL, " "));
+            strtok(NULL, " ");
             token = strtok(NULL, " ");
             while(token != NULL){
-                symbol *paraTmp = malloc(sizeof(symbol));
-                paraTmp->dataType = strdup(token);
                 strcat(parameter, ", ");
-                strcat(parameter, paraTmp->dataType);
-                paraTmp->name = strdup(strtok(NULL, " "));
-                paraTmp->entryType = strdup("parameter");
-                paraTmp->scope = 1;
-                paraTmp->parameter = strdup("");
-                insert_symbol(paraTmp);
+                strcat(parameter, token);
+                strtok(NULL, " ");
                 token = strtok(NULL, " ");
             }
             tmp->parameter = strdup(parameter);
@@ -409,6 +430,19 @@ void create_symbol(char *signature){
         }
         insert_symbol(tmp);
     }
+    else{
+        char *token = strtok(signature, " ");
+        while(token != NULL){
+            symbol *paraTmp = malloc(sizeof(symbol));
+            paraTmp->dataType = strdup(token);
+            paraTmp->name = strdup(strtok(NULL, " "));
+            paraTmp->entryType = strdup("parameter");
+            paraTmp->scope = 1;
+            paraTmp->parameter = strdup("");
+            insert_symbol(paraTmp);
+            token = strtok(NULL, " ");
+        }
+    }
 }
 
 void insert_symbol(symbol *s){
@@ -416,9 +450,11 @@ void insert_symbol(symbol *s){
 }
 
 int lookup_symbol(char *name, int scope){
-    for(int i = 0; i < symbolCount[scope]; ++i){
-        if(!strcmp(table[scope][i]->name, name))
-            return 1;
+    for(int j = scope; j >= 0; --j){
+        for(int i = 0; i < symbolCount[j]; ++i){
+            if(!strcmp(table[j][i]->name, name))
+                return 1;
+        }
     }
     return 0;
 }

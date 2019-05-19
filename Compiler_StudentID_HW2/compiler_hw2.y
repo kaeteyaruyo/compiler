@@ -56,7 +56,7 @@ void dump_symbol(int scope);
 %nonassoc LOWER_THAN_ELSE
 %nonassoc ELSE
 
-%type <string> variable_declaration function_declarator parameter_list parameter_declarator type_specifier
+%type <string> variable_declaration function_declaration function_definition parameter_list parameter_declarator type_specifier
 
 /* Yacc will start at this nonterminal */
 %start translation_unit
@@ -73,9 +73,9 @@ translation_unit:
 external_declaration:
 	variable_declaration                    { create_symbol($1); }
 	|
-	function_declarator ';' 	            { create_symbol($1); }
+	function_declaration ';' 	            {  }
 	|
-	function_declarator compound_statement 	{ create_symbol($1); }
+	function_definition compound_statement 	{  }
 	;
 
 variable_declaration:
@@ -84,11 +84,25 @@ variable_declaration:
 	type_specifier ID '=' assignment_expression ';' { sprintf($$, "%s %s variable %d", $1, $2, currentScope); }
 	;
 
-function_declarator:
-	type_specifier ID '(' ')'	                { sprintf($$, "%s %s function", $1, $2); }
+function_declaration:
+	type_specifier ID '(' ')'	                { sprintf($$, "%s %s function", $1, $2); create_symbol($$); }
+    |
+	type_specifier ID '(' parameter_list ')'	{ sprintf($$, "%s %s function parameter %s", $1, $2, $4); create_symbol($$); }
+    ;
+
+function_definition:
+	type_specifier ID '(' ')'	                {
+        if(!lookup_symbol($2, 0)){
+            sprintf($$, "%s %s function", $1, $2);
+            create_symbol($$);
+        }
+    }
     |
 	type_specifier ID '(' parameter_list ')'	{
+        if(!lookup_symbol($2, 0)){
         sprintf($$, "%s %s function parameter %s", $1, $2, $4);
+            create_symbol($$);
+        }
         create_symbol($4);
     }
     ;

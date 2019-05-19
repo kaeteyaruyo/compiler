@@ -1,4 +1,4 @@
-void bla((int a, int b);
+void bla(int a, int b);
 
 int lala(int h){
     return h;

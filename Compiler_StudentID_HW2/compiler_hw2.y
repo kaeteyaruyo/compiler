@@ -192,6 +192,7 @@ primary_expression:
         int found = 0;
         for(int i = currentScope; i >= 0; --i){
             found = lookup_symbol($1, i);
+            if(found == 1) break;
         }
         if(!found){
             errorFlag = 1;
@@ -355,6 +356,7 @@ print_statement:
         int found = 0;
         for(int i = currentScope; i >= 0; --i){
             found = lookup_symbol($3, i);
+            if(found == 1) break;
         }
         if(!found){
             errorFlag = 1;

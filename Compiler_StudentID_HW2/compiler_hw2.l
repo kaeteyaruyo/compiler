@@ -4,15 +4,15 @@
 #include "string.h"
 
 extern YYSTYPE yylval; //YYSTYPE
-extern int currentScope;
 char buf[256];
 char strbuf[256];
 int dumpFlagWithScope = 0;
 
-extern void dump_symbol(int scope);
-extern void yyerror(char *s);
+extern int currentScope;
 extern int errorFlag;
 extern char errorMsg[256];
+extern void dump_symbol(int scope);
+extern void yyerror(char *s);
 
 /* This macro is used to record code line */
 #define CONCAT { strncat(buf, yytext, 256 - strlen(buf) - 1); }
@@ -117,7 +117,11 @@ id			{letter}+({letter}|{digit})*
 "/*"				{ BEGIN COMMENT; CONCAT; }
 <COMMENT>[^*\n]+	{ CONCAT; }
 <COMMENT>\n			{
-    printf("%d: %s\n", yylineno, buf);
+    if(strlen(buf) != 0)
+        printf("%d: %s\n", yylineno, buf);
+    else{
+        printf("%d:\n", yylineno);
+    }
     memset(buf, 0, sizeof(buf));
 }
 <COMMENT>"*"		{ CONCAT; }
@@ -151,7 +155,7 @@ id			{letter}+({letter}|{digit})*
 }
 [ \t]		{ CONCAT; } /* Ignore */
 [^ \t\n] 	{ CONCAT; } /* Ignore other charactor sets */
-<<eof>>     { dump_symbol(0); dump_symbol(1); printf("\nTotal lines: %d \n", yylineno); return 0; }
+<<eof>>     { dump_symbol(0); printf("\nTotal lines: %d \n", yylineno); return 0; }
 
 %%
 

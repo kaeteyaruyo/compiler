@@ -17,7 +17,7 @@
 LABEL_BEGIN:
 	iload 0
 	ldc 6
-	isub 
+	isub
 	iflt LABEL_TRUE
 	goto LABEL_FALSE
 LABEL_TRUE:

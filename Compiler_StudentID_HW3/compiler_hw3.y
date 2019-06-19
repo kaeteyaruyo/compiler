@@ -14,6 +14,8 @@ typedef struct{
 
 symbol *table[50][50];
 int symbolCount[50] = { 0 };
+int ifCount = 0;
+int whileCount = 0;
 int currentScope = 0;
 int errorFlag = 0;
 char errorMsg[256] = "";
@@ -23,19 +25,21 @@ extern int yylineno;
 extern int yylex();
 extern char* yytext;
 extern char buf[256];
-void yyerror(char *s);
+void yyerror(const char *s);
 
-void create_symbol_variable(int scope, char *name, char *type);
-void create_symbol_function(char *name, char *return_type, char *parameter_type);
-symbol *lookup_symbol(char *name, int scope);
+void create_symbol_variable(int scope, const char *name, const char *type);
+void create_symbol_function(const char *name, const char *return_type, const char *parameter_type);
+symbol *lookup_symbol(const char *name, int scope);
 void dump_symbol(int scope);
 
-void gencode_global_variable(char *name, char *type, char *initial_value);
-void gencode_function(char *name, char *return_type, char *parameter_type);
-void gencode_load_store(const char *instruction, const char *type, int index);
+void gencode_global_variable(const char *instruction, const char *name, const char *type, const char *initial_value);
+void gencode_function(const char *name, const char *return_type, const char *parameter_type);
+void gencode_assignment(const char *name, const char *instruction, char *right_type);
+void gencode_load_store(const char *instruction, int index, const char *type);
 void gencode_arithmetic(const char *instruction, const char *type);
-const char *get_type_descriptors(char *type);
-const char *get_type_initial_value(char *type);
+const char *gencode_expression(const char *instruction, const char *left_type, const char *right_type);
+const char *get_type_descriptors(const char *type);
+const char *get_type_initial_value(const char *type);
 
 %}
 
@@ -45,9 +49,10 @@ const char *get_type_initial_value(char *type);
         char *value;
     } token;
     char *string;
+    int labelIndex;
 };
 
-%token IF ELSE FOR WHILE RETURN PRINT
+%token IF ELSE WHILE RETURN PRINT
 %token GE_OP LE_OP EQ_OP NE_OP AND_OP OR_OP INC_OP DEC_OP
 %token ADD_ASSIGN SUB_ASSIGN MUL_ASSIGN DIV_ASSIGN MOD_ASSIGN
 
@@ -57,8 +62,9 @@ const char *get_type_initial_value(char *type);
 %token <string> VOID INT FLOAT STRING BOOL ID
 %token <token> I_CONST F_CONST STRING_LITERAL TRUE FALSE
 %type <string> parameter_list type_specifier argument_expression_list
-%type <token> expression assignment_expression relational_expression additive_expression
-%type <token> multiplicative_expression unary_expression postfix_expression constant
+%type <token> constant assignment_expression relational_expression
+%type <token> additive_expression multiplicative_expression postfix_expression
+%type <labelIndex> while while_condition if_condition if_else_condition
 
 %start translation_unit
 
@@ -73,25 +79,25 @@ translation_unit:
 external_declaration:
 	type_specifier ID '=' constant ';'     { // global variable declaration with initial value
         create_symbol_variable(0, $2, $1);
-        gencode_global_variable($2, $1, $4.value);
+        gencode_global_variable("declare", $2, $1, $4.value);
     }
 	|
 	type_specifier ID ';'                  { // global variable declaration
         create_symbol_variable(0, $2, $1);
-        gencode_global_variable($2, $1, "");
+        gencode_global_variable("declare", $2, $1, "");
     }
 	|
 	function_declaration ';' 	           { // function declaration
 
     }
 	|
-	function_definition compound_statement { // (end of) function definition
+	function_definition compound_statement { //  function definition
         fprintf(file, ".end method\n");
     }
 	;
 
 function_declaration:
-	type_specifier ID '(' ')'	             {
+	type_specifier ID '(' ')'	             { // function declaration
         if(lookup_symbol($2, 0)){
             errorFlag = 1;
             sprintf(errorMsg, "Redeclared function %s", $2);
@@ -101,7 +107,7 @@ function_declaration:
         }
     }
     |
-	type_specifier ID '(' parameter_list ')' {
+	type_specifier ID '(' parameter_list ')' { // function declaration with parameter
         if(lookup_symbol($2, 0)){
             errorFlag = 1;
             sprintf(errorMsg, "Redeclared function %s", $2);
@@ -113,14 +119,14 @@ function_declaration:
     ;
 
 function_definition:
-	type_specifier ID '(' ')'	             {
+	type_specifier ID '(' ')'	             { // function definition
         if(!lookup_symbol($2, 0)){
             create_symbol_function($2, $1, "");
         }
         gencode_function($2, $1, "");
     }
     |
-	type_specifier ID '(' parameter_list ')' {
+	type_specifier ID '(' parameter_list ')' { // function declaration with parameter
         if(!lookup_symbol($2, 0)){
             create_symbol_function($2, $1, $4);
         }
@@ -128,28 +134,39 @@ function_definition:
     }
     ;
 
-type_specifier:
-	VOID   {  }
-	|
-	INT    {  }
-	|
-	FLOAT  {  }
-	|
-	STRING {  }
-	|
-	BOOL   {  }
-	;
-
 parameter_list:
-    type_specifier ID					 {
+    type_specifier ID					 { // parameter
         create_symbol_variable(1, $2, $1);
         sprintf($$, "%s", get_type_descriptors($1));
     }
 	|
-	parameter_list ',' type_specifier ID {
+	parameter_list ',' type_specifier ID { // parameter list
         create_symbol_variable(1, $4, $3);
         sprintf($$, "%s%s", $1, get_type_descriptors($3));
     }
+	;
+
+statement:
+	compound_statement	 {  }
+	|
+    expression_statement {  }
+	|
+    if_condition statement %prec LOWER_THAN_ELSE {
+        fprintf(file, "IF_FALSE_%d:\n", $1);
+    }
+	|
+    if_else_condition statement{
+        fprintf(file, "IF_EXIT_%d:\n", $1);
+    }
+	|
+    while_condition statement {
+        fprintf(file, "\tgoto WHILE_BEGIN_%d\n", $1);
+        fprintf(file, "WHILE_END_%d:\n", $1);
+    }
+	|
+    return_statement     {  }
+	|
+    print_statement	     {  }
 	;
 
 compound_statement:
@@ -165,123 +182,64 @@ block_item_list:
 	;
 
 block_item:
-	type_specifier ID ';'                           {
+	type_specifier ID ';' { // local variable declaration
         create_symbol_variable(currentScope, $2, $1);
         fprintf(file, "\tldc %s\n", get_type_initial_value($1));
-        gencode_load_store("store", $1, lookup_symbol($2, currentScope)->index);
+        gencode_load_store("store", lookup_symbol($2, currentScope)->index, $1);
     }
     |
-	type_specifier ID '=' additive_expression ';' {
+	type_specifier ID '=' additive_expression ';' { // local variable declaration with initial value
         create_symbol_variable(currentScope, $2, $1);
-        if(!strcmp($1, "int") && !strcmp($4.type, "float")){
-            fprintf(file, "\tf2i\n");
-        }
-        else if(!strcmp($1, "float") && !strcmp($4.type, "int")){
-            fprintf(file, "\ti2f\n");
-        }
-        gencode_load_store("store", $1, lookup_symbol($2, currentScope)->index);
+        gencode_assignment($2, "", $4.type);
     }
 	|
-    statement              	                        {  }
+    statement {  }
 	;
 
-expression:
-	assignment_expression {  }
+expression_statement:
+	';'			   {  }
+	|
+    assignment_expression ';' {  }
 	;
 
 assignment_expression:
-	ID '=' additive_expression {
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
+    additive_expression               { // do some caculation but not stored
+        fprintf(file, "\tpop\n");
+    }
+    |
+	ID '=' additive_expression        { // assign
+        gencode_assignment($1, "", $3.type);
+    }
+	|
+	ID ADD_ASSIGN additive_expression { // add then assign
+        gencode_assignment($1, "add", $3.type);
+    }
+	|
+	ID SUB_ASSIGN additive_expression { // subtract then assign
+        gencode_assignment($1, "sub", $3.type);
+    }
+	|
+	ID MUL_ASSIGN additive_expression { // multiply then assign
+        gencode_assignment($1, "mul", $3.type);
+    }
+	|
+	ID DIV_ASSIGN additive_expression { // divide then assign
+        if(!strcmp($3.value, "0") || !strcmp($3.value, "0.0")){
             errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
+            sprintf(errorMsg, "Divided by zero");
         }
         else{
-            gencode_load_store("store", variable->data_type, variable->index);
+            gencode_assignment($1, "div", $3.type);
         }
     }
 	|
-	ID ADD_ASSIGN additive_expression {
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
+	ID MOD_ASSIGN additive_expression { // modulo then assign
+        if(!strcmp($3.value, "0")){
             errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
+            sprintf(errorMsg, "Divided by zero");
         }
         else{
-        }
-    }
-	|
-	ID SUB_ASSIGN additive_expression {
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
-            errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
-        }
-        else{
-            gencode_load_store("store", variable->data_type, variable->index);
-        }
-    }
-	|
-	ID MUL_ASSIGN additive_expression {
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
-            errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
-        }
-        else{
-            gencode_load_store("store", variable->data_type, variable->index);
-        }
-    }
-	|
-	ID DIV_ASSIGN additive_expression {
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
-            errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
-        }
-        else{
-            gencode_load_store("store", variable->data_type, variable->index);
-        }
-    }
-	|
-	ID MOD_ASSIGN additive_expression {
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
-            errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
-        }
-        else{
-            gencode_load_store("store", variable->data_type, variable->index);
+            gencode_assignment($1, "rem", $3.type);
         }
     }
 	;
@@ -289,120 +247,41 @@ assignment_expression:
 additive_expression:
 	multiplicative_expression							{  }
 	|
-    additive_expression '+' multiplicative_expression	{
-        fprintf(file, "%s(%s) + %s(%s)\n", $1.value, $1.type, $3.value, $3.type);
-        if(!strcmp($1.type, "int") && !strcmp($3.type, "int")){
-            sprintf($$.type, "int");
-            sprintf($$.value, "%d", atoi($1.value) + atoi($3.value));
-            gencode_arithmetic("add", "int");
-        }
-        else{
-            if(!strcmp($1.type, "float") && !strcmp($3.type, "int")){
-                fprintf(file, "\ti2f\n");
-            }
-            else if(!strcmp($1.type, "int") && !strcmp($3.type, "float")){
-                fprintf(file, "\tswap\n");
-                fprintf(file, "\ti2f\n");
-            }
-            sprintf($$.type, "float");
-            gencode_arithmetic("add", "float");
-        }
+    additive_expression '+' multiplicative_expression	{ // add
+        sprintf($$.type, "%s", gencode_expression("add", $1.type, $3.type));
     }
 	|
-    additive_expression '-' multiplicative_expression	{
-        fprintf(file, "%s(%s) - %s(%s)\n", $1.value, $1.type, $3.value, $3.type);
-        if(!strcmp($1.type, "int") && !strcmp($3.type, "int")){
-            sprintf($$.type, "int");
-            sprintf($$.value, "%d", atoi($1.value) - atoi($3.value));
-            gencode_arithmetic("sub", "int");
-        }
-        else{
-            if(!strcmp($1.type, "float") && !strcmp($3.type, "int")){
-                fprintf(file, "\ti2f\n");
-            }
-            else if(!strcmp($1.type, "int") && !strcmp($3.type, "float")){
-                fprintf(file, "\tswap\n");
-                fprintf(file, "\ti2f\n");
-            }
-            sprintf($$.type, "float");
-            gencode_arithmetic("sub", "float");
-        }
+    additive_expression '-' multiplicative_expression	{ // subtract
+        sprintf($$.type, "%s", gencode_expression("sub", $1.type, $3.type));
     }
 	;
 
 multiplicative_expression:
-	unary_expression								{  }
+	postfix_expression								{  }
 	|
-    multiplicative_expression '*' unary_expression {
-        fprintf(file, "%s(%s) * %s(%s)\n", $1.value, $1.type, $3.value, $3.type);
-        if(!strcmp($1.type, "int") && !strcmp($3.type, "int")){
-            sprintf($$.type, "int");
-            sprintf($$.value, "%d", atoi($1.value) * atoi($3.value));
-            gencode_arithmetic("mul", "int");
-        }
-        else{
-            if(!strcmp($1.type, "float") && !strcmp($3.type, "int")){
-                fprintf(file, "\ti2f\n");
-            }
-            else if(!strcmp($1.type, "int") && !strcmp($3.type, "float")){
-                fprintf(file, "\tswap\n");
-                fprintf(file, "\ti2f\n");
-            }
-            sprintf($$.type, "float");
-            gencode_arithmetic("mul", "float");
-        }
+    multiplicative_expression '*' postfix_expression { // multiply
+        sprintf($$.type, "%s", gencode_expression("mul", $1.type, $3.type));
     }
 	|
-    multiplicative_expression '/' unary_expression {
-        fprintf(file, "%s(%s) / %s(%s)\n", $1.value, $1.type, $3.value, $3.type);
+    multiplicative_expression '/' postfix_expression { // divide
         if(!strcmp($3.value, "0") || !strcmp($3.value, "0.0")){
             errorFlag = 1;
             sprintf(errorMsg, "Divided by zero");
         }
         else{
-            if(!strcmp($1.type, "int") && !strcmp($3.type, "int")){
-                sprintf($$.type, "int");
-                sprintf($$.value, "%d", atoi($1.value) / atoi($3.value));
-                gencode_arithmetic("div", "int");
-            }
-            else{
-                if(!strcmp($1.type, "float") && !strcmp($3.type, "int")){
-                    fprintf(file, "\ti2f\n");
-                }
-                else if(!strcmp($1.type, "int") && !strcmp($3.type, "float")){
-                    fprintf(file, "\tswap\n");
-                    fprintf(file, "\ti2f\n");
-                }
-                sprintf($$.type, "float");
-                gencode_arithmetic("div", "float");
-            }
+            sprintf($$.type, "%s", gencode_expression("div", $1.type, $3.type));
         }
     }
 	|
-    multiplicative_expression '%' unary_expression {
-        if(!strcmp($3.value, "0") || !strcmp($3.value, "0.0")){
+    multiplicative_expression '%' postfix_expression { // modulo
+        if(!strcmp($3.value, "0")){
             errorFlag = 1;
             sprintf(errorMsg, "Divided by zero");
         }
         else{
-            if(!strcmp($1.type, "int") && !strcmp($3.type, "int")){
-                sprintf($$.type, "int");
-                gencode_arithmetic("rem", "int");
-            }
-            else{
-                errorFlag = 1;
-                sprintf(errorMsg, "Modulo operator with floating point operands");
-            }
+            sprintf($$.type, "%s", gencode_expression("rem", $1.type, $3.type));
         }
     }
-	;
-
-unary_expression:
-	postfix_expression		{  }
-	|
-	'+' unary_expression	{  }
-	|
-	'-' unary_expression	{  }
 	;
 
 postfix_expression:
@@ -418,22 +297,84 @@ postfix_expression:
             sprintf(errorMsg, "Undeclared variable %s", $1);
         }
         else{
-            sprintf($$.type, "%s", variable->data_type);
-            sprintf($$.value, "%s", variable->name);
-            if(i == 0)
-                fprintf(file, "\tgetstatic compiler_hw3/%s %s\n", variable->name, get_type_descriptors(variable->data_type));
-            else
-                gencode_load_store("load", variable->data_type, variable->index);
+            // sprintf($$.type, "%s", variable->data_type);
+            // sprintf($$.value, "%s", variable->name);
+            $$.type = strdup(variable->data_type);
+            $$.value = strdup(variable->name);
+            if(i == 0){
+                gencode_global_variable("load", variable->name, variable->data_type, "");
+            }
+            else{
+                gencode_load_store("load", variable->index, variable->data_type);
+            }
         }
     }
 	|
-	constant {
+	constant { // constant
         fprintf(file, "\tldc %s\n", $1.value);
     }
 	|
-	ID INC_OP {  }
+	ID INC_OP { // postfix increment
+        symbol *variable = NULL;
+        int i;
+        for(i = currentScope; i >= 0; --i){
+            variable = lookup_symbol($1, i);
+            if(variable) break;
+        }
+        if(!variable){
+            errorFlag = 1;
+            sprintf(errorMsg, "Undeclared variable %s", $1);
+        }
+        else{
+            sprintf($$.type, "%s", variable->data_type);
+            sprintf($$.value, "%s", variable->name);
+            if(i == 0){
+                gencode_global_variable("load", variable->name, variable->data_type, "");
+                gencode_global_variable("load", variable->name, variable->data_type, "");
+                fprintf(file, "\tldc 1\n");
+                fprintf(file, "\tiadd\n");
+                gencode_global_variable("store", variable->name, variable->data_type, "");
+            }
+            else{
+                gencode_load_store("load", variable->index, variable->data_type);
+                gencode_load_store("load", variable->index, variable->data_type);
+                fprintf(file, "\tldc 1\n");
+                fprintf(file, "\tiadd\n");
+                gencode_load_store("store", variable->index, variable->data_type);
+            }
+        }
+    }
 	|
-	ID DEC_OP {  }
+	ID DEC_OP {
+        symbol *variable = NULL;
+        int i;
+        for(i = currentScope; i >= 0; --i){
+            variable = lookup_symbol($1, i);
+            if(variable) break;
+        }
+        if(!variable){
+            errorFlag = 1;
+            sprintf(errorMsg, "Undeclared variable %s", $1);
+        }
+        else{
+            sprintf($$.type, "%s", variable->data_type);
+            sprintf($$.value, "%s", variable->name);
+            if(i == 0){
+                gencode_global_variable("load", variable->name, variable->data_type, "");
+                gencode_global_variable("load", variable->name, variable->data_type, "");
+                fprintf(file, "\tldc 1\n");
+                fprintf(file, "\tisub\n");
+                gencode_global_variable("store", variable->name, variable->data_type, "");
+            }
+            else{
+                gencode_load_store("load", variable->index, variable->data_type);
+                gencode_load_store("load", variable->index, variable->data_type);
+                fprintf(file, "\tldc 1\n");
+                fprintf(file, "\tisub\n");
+                gencode_load_store("store", variable->index, variable->data_type);
+            }
+        }
+    }
     |
 	ID '(' ')' { // function call
         symbol *function = lookup_symbol($1, 0);
@@ -467,8 +408,8 @@ postfix_expression:
         }
     }
 	|
-	'(' additive_expression ')'	{
-        fprintf(file, "( %s(%s) )\n", $2.value, $2.type);
+	'(' additive_expression ')'	{ // bracketed expression
+        $$ = $2;
     }
 	;
 
@@ -482,66 +423,86 @@ argument_expression_list:
     }
 	;
 
-constant:
-	I_CONST		    {  }
-	|
-	F_CONST		    {  }
-	|
-	TRUE		    {  }
-	|
-	FALSE		   	{  }
-	|
-	STRING_LITERAL	{  }
+if_else_condition:
+    if_condition statement ELSE {
+        fprintf(file, "\tgoto IF_EXIT_%d\n", $1);
+        fprintf(file, "IF_FALSE_%d:\n", $1);
+    }
 	;
 
-statement:
-	compound_statement	 {  }
-	|
-    expression_statement {  }
-	|
-    selection_statement	 {  }
-	|
-    iteration_statement  {  }
-	|
-    return_statement     {  }
-	|
-    print_statement	     {  }
+if_condition:
+    IF '(' relational_expression ')' {
+        int ifIndex = ++ifCount;
+        fprintf(file, "IF_TRUE_%d\n", ifIndex);
+        fprintf(file, "\tgoto IF_FALSE_%d\n", ifIndex);
+        fprintf(file, "IF_TRUE_%d:\n", ifIndex);
+        $$ = ifIndex;
+    }
+    ;
+
+while_condition:
+	while '(' relational_expression ')' {
+        fprintf(file, "WHILE_BODY_%d\n", $1);
+        fprintf(file, "\tgoto WHILE_END_%d\n", $1);
+        fprintf(file, "WHILE_BODY_%d:\n", $1);
+    }
 	;
 
-expression_statement:
-	';'			   {  }
-	|
-    expression ';' {  }
-	;
-
-selection_statement:
-	IF '(' relational_expression ')' statement %prec LOWER_THAN_ELSE {  }
-	|
-    IF '(' relational_expression ')' statement ELSE statement        {  }
-	;
-
-iteration_statement:
-	WHILE '(' relational_expression ')' statement {  }
-	;
+while:
+    WHILE {
+        int whileIndex = ++whileCount;
+        fprintf(file, "WHILE_BEGIN_%d:\n", whileIndex);
+        $$ = whileIndex;
+    }
+    ;
 
 relational_expression:
-    postfix_expression EQ_OP postfix_expression	{  }
+    postfix_expression EQ_OP postfix_expression	{
+        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+            fprintf(file, "\tf2i\n");
+        }
+        fprintf(file, "\tifeq ");
+    }
 	|
-    postfix_expression NE_OP postfix_expression	{  }
+    postfix_expression NE_OP postfix_expression	{
+        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+            fprintf(file, "\tf2i\n");
+        }
+        fprintf(file, "\tifne ");
+    }
 	|
-    postfix_expression '<' postfix_expression	{  }
+    postfix_expression '<' postfix_expression	{
+        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+            fprintf(file, "\tf2i\n");
+        }
+        fprintf(file, "\tiflt ");
+    }
 	|
-    postfix_expression '>' postfix_expression	{  }
+    postfix_expression '>' postfix_expression	{
+        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+            fprintf(file, "\tf2i\n");
+        }
+        fprintf(file, "\tifgt ");
+    }
 	|
-    postfix_expression LE_OP postfix_expression	{  }
+    postfix_expression LE_OP postfix_expression	{
+        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+            fprintf(file, "\tf2i\n");
+        }
+        fprintf(file, "\tifle ");
+    }
 	|
-    postfix_expression GE_OP postfix_expression	{  }
+    postfix_expression GE_OP postfix_expression	{
+        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+            fprintf(file, "\tf2i\n");
+        }
+        fprintf(file, "\tifge ");
+    }
 	;
 
 return_statement:
 	RETURN ';'          {
-        char *return_type = table[0][symbolCount[0] - 1]->data_type;
-        if(!strcmp(return_type, "void")){
+        if(!strcmp(table[0][symbolCount[0] - 1]->data_type, "void")){
             fprintf(file, "\treturn\n");
         }
         else{
@@ -551,7 +512,7 @@ return_statement:
     }
 	|
     RETURN postfix_expression ';'       {
-        char *return_type = table[0][symbolCount[0] - 1]->data_type;
+        const char *return_type = table[0][symbolCount[0] - 1]->data_type;
         if(!strcmp(return_type, $2.type)){
             if(!strcmp(return_type, "int") || !strcmp(return_type, "bool")){
                 fprintf(file, "\tireturn\n");
@@ -575,6 +536,31 @@ print_statement:
     }
 	;
 
+type_specifier:
+	VOID   {  }
+	|
+	INT    {  }
+	|
+	FLOAT  {  }
+	|
+	STRING {  }
+	|
+	BOOL   {  }
+	;
+
+constant:
+	I_CONST		    {  }
+	|
+	F_CONST		    {  }
+	|
+	TRUE		    {  }
+	|
+	FALSE		   	{  }
+	|
+	STRING_LITERAL	{  }
+	;
+
+
 %%
 
 /* C code section */
@@ -593,7 +579,7 @@ int main(int argc, char **argv)
     return 0;
 }
 
-void yyerror(char *s)
+void yyerror(const char *s)
 {
     if(!strcmp(s, "syntax error")){
         if(strlen(buf) != 0){
@@ -623,7 +609,7 @@ void yyerror(char *s)
     }
 }
 
-void create_symbol_variable(int scope, char *name, char *type){
+void create_symbol_variable(int scope, const char *name, const char *type){
     if(lookup_symbol(name, scope)){
         errorFlag = 1;
         sprintf(errorMsg, "Redeclared variable %s", name);
@@ -642,7 +628,7 @@ void create_symbol_variable(int scope, char *name, char *type){
     table[scope][symbolCount[scope]++] = tmp;
 }
 
-void create_symbol_function(char *name, char *return_type, char *parameter_type){
+void create_symbol_function(const char *name, const char *return_type, const char *parameter_type){
     symbol *tmp = malloc(sizeof(symbol));
     tmp->name = strdup(name);
     tmp->entry_type = strdup("function");
@@ -653,7 +639,7 @@ void create_symbol_function(char *name, char *return_type, char *parameter_type)
     table[0][tmp->index] = tmp;
 }
 
-symbol *lookup_symbol(char *name, int scope){
+symbol *lookup_symbol(const char *name, int scope){
     for(int i = 0; i < symbolCount[scope]; ++i){
         if(!strcmp(table[scope][i]->name, name))
             return table[scope][i];
@@ -676,15 +662,24 @@ void dump_symbol(int scope) {
     }
 }
 
-void gencode_global_variable(char *name, char *type, char *initial_value) {
-    if(strcmp(initial_value, "")){
-        fprintf(file, ".field public static %s %s = %s\n", name, get_type_descriptors(type), initial_value);
+void gencode_global_variable(const char *instruction, const char *name, const char *type, const char *initial_value){
+    if(!strcmp(instruction, "declare")){
+        if(strcmp(initial_value, "")){
+            fprintf(file, ".field public static %s %s = %s\n", name, get_type_descriptors(type), initial_value);
+        }
+        else{
+            fprintf(file, ".field public static %s %s\n", name, get_type_descriptors(type));
+        }
     }
-    else
-        fprintf(file, ".field public static %s %s\n", name, get_type_descriptors(type));
+    else if(!strcmp(instruction, "store")){
+        fprintf(file, "\tputstatic compiler_hw3/%s %s\n", name, get_type_descriptors(type));
+    }
+    else if(!strcmp(instruction, "load")){
+        fprintf(file, "\tgetstatic compiler_hw3/%s %s\n", name, get_type_descriptors(type));
+    }
 }
 
-void gencode_function(char *name, char *return_type, char *parameter_type){
+void gencode_function(const char *name, const char *return_type, const char *parameter_type){
     if(!strcmp(name, "main"))
         fprintf(file, ".method public static main([Ljava/lang/String;)V\n");
     else
@@ -693,7 +688,7 @@ void gencode_function(char *name, char *return_type, char *parameter_type){
     fprintf(file, ".limit locals 50\n");
 }
 
-void gencode_load_store(const char *instruction, const char *type, int index){
+void gencode_load_store(const char *instruction, int index, const char *type){
     if(!strcmp(instruction, "store")){
         if(!strcmp(type, "int") || !strcmp(type, "bool"))
             fprintf(file, "\tistore %d\n", index);
@@ -709,6 +704,78 @@ void gencode_load_store(const char *instruction, const char *type, int index){
             fprintf(file, "\tfload %d\n", index);
         else if(!strcmp(type, "string"))
             fprintf(file, "\taload %d\n", index);
+    }
+}
+
+void gencode_assignment(const char *name, const char *instruction, char *right_type){
+    symbol *variable = NULL;
+    int i;
+    for(i = currentScope; i >= 0; --i){
+        variable = lookup_symbol(name, i);
+        if(variable) break;
+    }
+    if(!variable){
+        errorFlag = 1;
+        sprintf(errorMsg, "Undeclared variable %s", name);
+    }
+    else{
+        if(strcmp(instruction, "")){
+            if(i == 0){
+                gencode_global_variable("load", variable->name, variable->data_type, "");
+            }
+            else{
+                gencode_load_store("load", variable->index, variable->data_type);
+            }
+            fprintf(file, "\tswap\n");
+            right_type = strdup(gencode_expression(instruction, variable->data_type, right_type));
+        }
+
+        if(!strcmp(variable->data_type, "int") && !strcmp(right_type, "float")){
+            fprintf(file, "\tf2i\n");
+        }
+        else if(!strcmp(variable->data_type, "float") && !strcmp(right_type, "int")){
+            fprintf(file, "\ti2f\n");
+        }
+
+        if(i == 0){
+            gencode_global_variable("store", variable->name, variable->data_type, "");
+        }
+        else{
+            gencode_load_store("store", variable->index, variable->data_type);
+        }
+    }
+}
+
+const char *gencode_expression(const char *instruction, const char *left_type, const char *right_type){
+
+    if(strcmp(instruction, "rem")){
+        if(!strcmp(left_type, "int") && !strcmp(right_type, "int")){
+            gencode_arithmetic(instruction, "int");
+            return "int";
+        }
+        else{
+            if(!strcmp(left_type, "float") && !strcmp(right_type, "int")){
+                fprintf(file, "\ti2f\n");
+            }
+            else if(!strcmp(left_type, "int") && !strcmp(right_type, "float")){
+                fprintf(file, "\tswap\n");
+                fprintf(file, "\ti2f\n");
+                fprintf(file, "\tswap\n");
+            }
+            gencode_arithmetic(instruction, "float");
+            return "float";
+        }
+    }
+    else{
+        if(!strcmp(left_type, "int") && !strcmp(right_type, "int")){
+            gencode_arithmetic("rem", "int");
+            return "int";
+        }
+        else{
+            errorFlag = 1;
+            sprintf(errorMsg, "Modulo operator with floating point operands");
+            return "";
+        }
     }
 }
 
@@ -760,7 +827,7 @@ void gencode_arithmetic(const char *instruction, const char *type){
     }
 }
 
-const char *get_type_descriptors(char *type){
+const char *get_type_descriptors(const char *type){
     if(!strcmp(type, "int"))
         return "I";
     else if(!strcmp(type, "bool"))
@@ -773,7 +840,7 @@ const char *get_type_descriptors(char *type){
         return "Ljava/lang/String;";
 }
 
-const char *get_type_initial_value(char *type){
+const char *get_type_initial_value(const char *type){
     if(!strcmp(type, "int"))
         return "0";
     else if(!strcmp(type, "bool"))

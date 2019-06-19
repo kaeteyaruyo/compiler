@@ -72,7 +72,6 @@ id			{letter}+({letter}|{digit})*
  /* Condition and Loop Keywords */
 "if"		{ CONCAT; return IF; }
 "else"		{ CONCAT; return ELSE; }
-"for"		{ CONCAT; return FOR; }
 "while"		{ CONCAT; return WHILE; }
 
 "return"    { CONCAT; return RETURN; }

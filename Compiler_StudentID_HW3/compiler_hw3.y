@@ -6,6 +6,7 @@
 typedef struct{
 	int scope;
     int index;
+    int defined;
 	char *name;
 	char *entry_type;
 	char *data_type;
@@ -17,7 +18,8 @@ int symbolCount[50] = { 0 };
 int ifCount = 0;
 int whileCount = 0;
 int currentScope = 0;
-int errorFlag = 0;
+int semanticErrorFlag = 0;
+int saveFileFlag = 1;
 char errorMsg[256] = "";
 FILE *file;
 
@@ -28,8 +30,9 @@ extern char buf[256];
 void yyerror(const char *s);
 
 void create_symbol_variable(int scope, const char *name, const char *type);
-void create_symbol_function(const char *name, const char *return_type, const char *parameter_type);
-symbol *lookup_symbol(const char *name, int scope);
+void create_symbol_function(const char *name, const char *return_type, const char *parameter_type, int defined);
+symbol *lookup_symbol_with_scope(const char *name, int scope);
+symbol *lookup_symbol(const char *name);
 void dump_symbol(int scope);
 
 void gencode_global_variable(const char *instruction, const char *name, const char *type, const char *initial_value);
@@ -45,10 +48,10 @@ const char *get_type_initial_value(const char *type);
 
 %union {
     struct{
-        char *type;
-        char *value;
+        char type[10];
+        char value[64];
     } token;
-    char *string;
+    char string[64];
     int labelIndex;
 };
 
@@ -97,40 +100,134 @@ external_declaration:
 	;
 
 function_declaration:
-	type_specifier ID '(' ')'	             { // function declaration
-        if(lookup_symbol($2, 0)){
-            errorFlag = 1;
-            sprintf(errorMsg, "Redeclared function %s", $2);
+	type_specifier ID '(' ')' { // function declaration
+        symbol *function = lookup_symbol_with_scope($2, 0);
+        if(!function){
+            // Not declared or defined yet
+            create_symbol_function($2, $1, "", 0);
         }
         else{
-            create_symbol_function($2, $1, "");
+            // Redeclared error
+            if(!function->defined){
+                semanticErrorFlag = 1;
+                sprintf(errorMsg, "Redeclared function %s", $2);
+            }
+            // Else, define then declare
+            else{
+                if(strcmp(function->parameter, "") && strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "1. Function return type is not the same\n| 2. Function formal parameter is not the same");
+                }
+                else if(strcmp(function->parameter, "")){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function formal parameter is not the same");
+                }
+                else if(strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function return type is not the same");
+                }
+            }
         }
+        for(int i = 0; i < symbolCount[1]; ++i){
+            free(table[1][i]);
+            table[1][i] = NULL;
+        }
+        symbolCount[1] = 0;
     }
     |
 	type_specifier ID '(' parameter_list ')' { // function declaration with parameter
-        if(lookup_symbol($2, 0)){
-            errorFlag = 1;
-            sprintf(errorMsg, "Redeclared function %s", $2);
+        symbol *function = lookup_symbol_with_scope($2, 0);
+        if(!function){
+            // Not declared or defined yet
+            create_symbol_function($2, $1, $4, 0);
         }
         else{
-            create_symbol_function($2, $1, $4);
+            // Redeclared error
+            if(!function->defined){
+                semanticErrorFlag = 1;
+                sprintf(errorMsg, "Redeclared function %s", $2);
+            }
+            // Else, define then declare
+            else{
+                if(strcmp(function->parameter, $4) && strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "1. Function return type is not the same\n| 2. Function formal parameter is not the same");
+                }
+                else if(strcmp(function->parameter, $4)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function formal parameter is not the same");
+                }
+                else if(strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function return type is not the same");
+                }
+            }
         }
+        for(int i = 0; i < symbolCount[1]; ++i){
+            free(table[1][i]);
+            table[1][i] = NULL;
+        }
+        symbolCount[1] = 0;
     }
     ;
 
 function_definition:
 	type_specifier ID '(' ')'	             { // function definition
-        if(!lookup_symbol($2, 0)){
-            create_symbol_function($2, $1, "");
+        symbol *function = lookup_symbol_with_scope($2, 0);
+        if(!function){
+            // Not declared or defined yet
+            create_symbol_function($2, $1, "", 1);
+            gencode_function($2, $1, "");
         }
-        gencode_function($2, $1, "");
+        else{
+            // Declared but not defined yet
+            if(!function->defined){
+                if(strcmp(function->parameter, "") && strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "1. Function return type is not the same\n| 2. Function formal parameter is not the same");
+                }
+                else if(strcmp(function->parameter, "")){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function formal parameter is not the same");
+                }
+                else if(strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function return type is not the same");
+                }
+                else{
+                    gencode_function($2, $1, "");
+                }
+            }
+        }
     }
     |
 	type_specifier ID '(' parameter_list ')' { // function declaration with parameter
-        if(!lookup_symbol($2, 0)){
-            create_symbol_function($2, $1, $4);
+        symbol *function = lookup_symbol_with_scope($2, 0);
+        if(!function){
+            // Not declared or defined yet
+            create_symbol_function($2, $1, $4, 1);
+            gencode_function($2, $1, $4);
         }
-        gencode_function($2, $1, $4);
+        else{
+            // Declared but not defined yet
+            if(!function->defined){
+                if(strcmp(function->parameter, $4) && strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "1. Function return type is not the same\n| 2. Function formal parameter is not the same");
+                }
+                else if(strcmp(function->parameter, $4)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function formal parameter is not the same");
+                }
+                else if(strcmp(function->data_type, $1)){
+                    semanticErrorFlag = 1;
+                    sprintf(errorMsg, "Function return type is not the same");
+                }
+                else{
+                    gencode_function($2, $1, $4);
+                }
+            }
+        }
     }
     ;
 
@@ -184,13 +281,19 @@ block_item_list:
 block_item:
 	type_specifier ID ';' { // local variable declaration
         create_symbol_variable(currentScope, $2, $1);
-        fprintf(file, "\tldc %s\n", get_type_initial_value($1));
-        gencode_load_store("store", lookup_symbol($2, currentScope)->index, $1);
+        if(!semanticErrorFlag){
+            fprintf(file, "\tldc %s\n", get_type_initial_value($1));
+            gencode_load_store("store", lookup_symbol_with_scope($2, currentScope)->index, $1);
+        }
     }
     |
 	type_specifier ID '=' additive_expression ';' { // local variable declaration with initial value
-        create_symbol_variable(currentScope, $2, $1);
-        gencode_assignment($2, "", $4.type);
+        if(!semanticErrorFlag){
+            create_symbol_variable(currentScope, $2, $1);
+            if(!semanticErrorFlag){
+                gencode_assignment($2, "", $4.type);
+            }
+        }
     }
 	|
     statement {  }
@@ -225,7 +328,7 @@ assignment_expression:
 	|
 	ID DIV_ASSIGN additive_expression { // divide then assign
         if(!strcmp($3.value, "0") || !strcmp($3.value, "0.0")){
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Divided by zero");
         }
         else{
@@ -235,7 +338,7 @@ assignment_expression:
 	|
 	ID MOD_ASSIGN additive_expression { // modulo then assign
         if(!strcmp($3.value, "0")){
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Divided by zero");
         }
         else{
@@ -265,7 +368,7 @@ multiplicative_expression:
 	|
     multiplicative_expression '/' postfix_expression { // divide
         if(!strcmp($3.value, "0") || !strcmp($3.value, "0.0")){
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Divided by zero");
         }
         else{
@@ -275,7 +378,7 @@ multiplicative_expression:
 	|
     multiplicative_expression '%' postfix_expression { // modulo
         if(!strcmp($3.value, "0")){
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Divided by zero");
         }
         else{
@@ -285,28 +388,21 @@ multiplicative_expression:
 	;
 
 postfix_expression:
-	ID					{ // variable at RHS
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
-            errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
-        }
-        else{
-            // sprintf($$.type, "%s", variable->data_type);
-            // sprintf($$.value, "%s", variable->name);
-            $$.type = strdup(variable->data_type);
-            $$.value = strdup(variable->name);
-            if(i == 0){
+	ID { // variable at RHS
+        symbol *variable = lookup_symbol($1);
+        if(variable){
+            sprintf($$.type, "%s", variable->data_type);
+            sprintf($$.value, "%s", variable->name);
+            if(variable->scope == 0){
                 gencode_global_variable("load", variable->name, variable->data_type, "");
             }
             else{
                 gencode_load_store("load", variable->index, variable->data_type);
             }
+        }
+        else{
+            memset($$.type, 0, 10);
+            memset($$.value, 0, 64);
         }
     }
 	|
@@ -315,20 +411,11 @@ postfix_expression:
     }
 	|
 	ID INC_OP { // postfix increment
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
-            errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
-        }
-        else{
+        symbol *variable = lookup_symbol($1);
+        if(variable){
             sprintf($$.type, "%s", variable->data_type);
             sprintf($$.value, "%s", variable->name);
-            if(i == 0){
+            if(variable->scope == 0){
                 gencode_global_variable("load", variable->name, variable->data_type, "");
                 gencode_global_variable("load", variable->name, variable->data_type, "");
                 fprintf(file, "\tldc 1\n");
@@ -343,23 +430,19 @@ postfix_expression:
                 gencode_load_store("store", variable->index, variable->data_type);
             }
         }
+        else{
+            memset($$.type, 0, 10);
+            memset($$.value, 0, 64);
+        }
+
     }
 	|
 	ID DEC_OP {
-        symbol *variable = NULL;
-        int i;
-        for(i = currentScope; i >= 0; --i){
-            variable = lookup_symbol($1, i);
-            if(variable) break;
-        }
-        if(!variable){
-            errorFlag = 1;
-            sprintf(errorMsg, "Undeclared variable %s", $1);
-        }
-        else{
+        symbol *variable = lookup_symbol($1);
+        if(variable){
             sprintf($$.type, "%s", variable->data_type);
             sprintf($$.value, "%s", variable->name);
-            if(i == 0){
+            if(variable->scope == 0){
                 gencode_global_variable("load", variable->name, variable->data_type, "");
                 gencode_global_variable("load", variable->name, variable->data_type, "");
                 fprintf(file, "\tldc 1\n");
@@ -373,32 +456,50 @@ postfix_expression:
                 fprintf(file, "\tisub\n");
                 gencode_load_store("store", variable->index, variable->data_type);
             }
+        }
+        else{
+            memset($$.type, 0, 10);
+            memset($$.value, 0, 64);
         }
     }
     |
 	ID '(' ')' { // function call
-        symbol *function = lookup_symbol($1, 0);
+        symbol *function = lookup_symbol_with_scope($1, 0);
         if(!function){
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Undeclared function %s", $1);
+            memset($$.type, 0, 10);
+            memset($$.value, 0, 64);
         }
         else{
-            sprintf($$.type, "%s", function->data_type);
-            sprintf($$.value, "%s", function->name);
-            fprintf(file, "\tinvokestatic compiler_hw3/%s()%s\n", function->name, get_type_descriptors(function->data_type));
+            if(strcmp(function->parameter, "")){
+                semanticErrorFlag = 1;
+                sprintf(errorMsg, "Function formal parameter is not the same");
+                memset($$.type, 0, 10);
+                memset($$.value, 0, 64);
+            }
+            else{
+                sprintf($$.type, "%s", function->data_type);
+                sprintf($$.value, "%s", function->name);
+                fprintf(file, "\tinvokestatic compiler_hw3/%s()%s\n", function->name, get_type_descriptors(function->data_type));
+            }
         }
     }
 	|
 	ID '(' argument_expression_list ')'	{ // function call with argument
-        symbol *function = lookup_symbol($1, 0);
+        symbol *function = lookup_symbol_with_scope($1, 0);
         if(!function){
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Undeclared function %s", $1);
+            memset($$.type, 0, 10);
+            memset($$.value, 0, 64);
         }
         else{
-            if(strcmp($3, function->parameter)){
-                errorFlag = 1;
+            if(strcmp(function->parameter, $3)){
+                semanticErrorFlag = 1;
                 sprintf(errorMsg, "Function formal parameter is not the same");
+                memset($$.type, 0, 10);
+                memset($$.value, 0, 64);
             }
             else{
                 sprintf($$.type, "%s", function->data_type);
@@ -415,11 +516,21 @@ postfix_expression:
 
 argument_expression_list:
 	postfix_expression {
-        sprintf($$, "%s", get_type_descriptors($1.type));
+        if(strcmp($1.type, "")){
+            sprintf($$, "%s", get_type_descriptors($1.type));
+        }
+        else{
+            sprintf($$, "V");
+        }
     }
 	|
     argument_expression_list ',' postfix_expression {
-        sprintf($$, "%s%s", $1, get_type_descriptors($3.type));
+        if(strcmp($3.type, "")){
+            sprintf($$, "%s%s", $1, get_type_descriptors($3.type));
+        }
+        else{
+            sprintf($$, "%sV", $1);
+        }
     }
 	;
 
@@ -458,45 +569,57 @@ while:
 
 relational_expression:
     postfix_expression EQ_OP postfix_expression	{
-        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
-            fprintf(file, "\tf2i\n");
+        if(strcmp($1.type, "") && strcmp($3.type, "")){
+            if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+                fprintf(file, "\tf2i\n");
+            }
+            fprintf(file, "\tifeq ");
         }
-        fprintf(file, "\tifeq ");
     }
 	|
     postfix_expression NE_OP postfix_expression	{
-        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
-            fprintf(file, "\tf2i\n");
+        if(strcmp($1.type, "") && strcmp($3.type, "")){
+            if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+                fprintf(file, "\tf2i\n");
+            }
+            fprintf(file, "\tifne ");
         }
-        fprintf(file, "\tifne ");
     }
 	|
     postfix_expression '<' postfix_expression	{
-        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
-            fprintf(file, "\tf2i\n");
+        if(strcmp($1.type, "") && strcmp($3.type, "")){
+            if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+                fprintf(file, "\tf2i\n");
+            }
+            fprintf(file, "\tiflt ");
         }
-        fprintf(file, "\tiflt ");
     }
 	|
     postfix_expression '>' postfix_expression	{
-        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
-            fprintf(file, "\tf2i\n");
+        if(strcmp($1.type, "") && strcmp($3.type, "")){
+            if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+                fprintf(file, "\tf2i\n");
+            }
+            fprintf(file, "\tifgt ");
         }
-        fprintf(file, "\tifgt ");
     }
 	|
     postfix_expression LE_OP postfix_expression	{
-        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
-            fprintf(file, "\tf2i\n");
+        if(strcmp($1.type, "") && strcmp($3.type, "")){
+            if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+                fprintf(file, "\tf2i\n");
+            }
+            fprintf(file, "\tifle ");
         }
-        fprintf(file, "\tifle ");
     }
 	|
     postfix_expression GE_OP postfix_expression	{
-        if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
-            fprintf(file, "\tf2i\n");
+        if(strcmp($1.type, "") && strcmp($3.type, "")){
+            if(!strcmp(gencode_expression("sub", $1.type, $3.type), "float")){
+                fprintf(file, "\tf2i\n");
+            }
+            fprintf(file, "\tifge ");
         }
-        fprintf(file, "\tifge ");
     }
 	;
 
@@ -506,14 +629,14 @@ return_statement:
             fprintf(file, "\treturn\n");
         }
         else{
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Function return type is not the same");
         }
     }
 	|
     RETURN postfix_expression ';'       {
         const char *return_type = table[0][symbolCount[0] - 1]->data_type;
-        if(!strcmp(return_type, $2.type)){
+        if(strcmp($2.type, "") && !strcmp(return_type, $2.type)){
             if(!strcmp(return_type, "int") || !strcmp(return_type, "bool")){
                 fprintf(file, "\tireturn\n");
             }
@@ -522,7 +645,7 @@ return_statement:
             }
         }
         else{
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Function return type is not the same");
         }
     }
@@ -530,9 +653,12 @@ return_statement:
 
 print_statement:
 	PRINT '(' postfix_expression ')' ';' {
-        fprintf(file, "\tgetstatic java/lang/System/out Ljava/io/PrintStream;\n");
-        fprintf(file, "\tswap\n");
-        fprintf(file, "\tinvokevirtual java/io/PrintStream/println(%s)V\n", get_type_descriptors($3.type));
+        if(strcmp($3.type, ""))
+        {
+            fprintf(file, "\tgetstatic java/lang/System/out Ljava/io/PrintStream;\n");
+            fprintf(file, "\tswap\n");
+            fprintf(file, "\tinvokevirtual java/io/PrintStream/println(%s)V\n", get_type_descriptors($3.type));
+        }
     }
 	;
 
@@ -575,32 +701,47 @@ int main(int argc, char **argv)
     yyparse();
 
     fclose(file);
+    if(!saveFileFlag){
+        remove("compiler_hw3.j");
+    }
 
     return 0;
 }
 
 void yyerror(const char *s)
 {
+    // If the error is syntax error
     if(!strcmp(s, "syntax error")){
+        // Flush error code line if any
         if(strlen(buf) != 0){
             printf("%d: %s\n", yylineno + 1, buf);
         }
+        // If not, print line number only
         else{
             printf("%d:\n", yylineno + 1);
         }
-        if(errorFlag > 0){
+
+        // If there is also a semantic error, print it too
+        if(semanticErrorFlag > 0){
             printf("\n|-----------------------------------------------|\n");
             printf("| Error found in line %d: %s\n", yylineno + 1, buf);
             printf("| %s", errorMsg);
             printf("\n|-----------------------------------------------|\n\n");
-            errorFlag = 0;
+            semanticErrorFlag = 0;
         }
+
+        // Print syntax error message
         printf("\n|-----------------------------------------------|\n");
         printf("| Error found in line %d: %s\n", yylineno + 1, buf);
         printf("| %s", s);
         printf("\n|-----------------------------------------------|\n\n");
     }
+    // If the error is semantic error
     else{
+        // Don't generate (save) file if semantic error occur
+        saveFileFlag = 0;
+
+        // Print semantic error message
         printf("\n|-----------------------------------------------|\n");
         printf("| Error found in line %d: %s\n", yylineno, buf);
         printf("| %s", s);
@@ -610,8 +751,8 @@ void yyerror(const char *s)
 }
 
 void create_symbol_variable(int scope, const char *name, const char *type){
-    if(lookup_symbol(name, scope)){
-        errorFlag = 1;
+    if(lookup_symbol_with_scope(name, scope)){
+        semanticErrorFlag = 1;
         sprintf(errorMsg, "Redeclared variable %s", name);
         return;
     }
@@ -625,10 +766,11 @@ void create_symbol_variable(int scope, const char *name, const char *type){
     tmp->index = symbolCount[scope];
     for(int i = 1; i < scope; ++i)
         tmp->index += symbolCount[i];
+    tmp->defined = 1;
     table[scope][symbolCount[scope]++] = tmp;
 }
 
-void create_symbol_function(const char *name, const char *return_type, const char *parameter_type){
+void create_symbol_function(const char *name, const char *return_type, const char *parameter_type, int defined){
     symbol *tmp = malloc(sizeof(symbol));
     tmp->name = strdup(name);
     tmp->entry_type = strdup("function");
@@ -636,15 +778,29 @@ void create_symbol_function(const char *name, const char *return_type, const cha
     tmp->scope = 0;
     tmp->parameter = strdup(parameter_type);
     tmp->index = symbolCount[0]++;
+    tmp->defined = defined;
     table[0][tmp->index] = tmp;
 }
 
-symbol *lookup_symbol(const char *name, int scope){
+symbol *lookup_symbol_with_scope(const char *name, int scope){
     for(int i = 0; i < symbolCount[scope]; ++i){
         if(!strcmp(table[scope][i]->name, name))
             return table[scope][i];
     }
     return NULL;
+}
+
+symbol *lookup_symbol(const char *name){
+    symbol *tmp = NULL;
+    for(int i = currentScope; i >= 0; --i){
+        tmp = lookup_symbol_with_scope(name, i);
+        if(tmp) break;
+    }
+    if(!tmp){
+        semanticErrorFlag = 1;
+        sprintf(errorMsg, "Undeclared variable %s", name);
+    }
+    return tmp;
 }
 
 void dump_symbol(int scope) {
@@ -708,19 +864,10 @@ void gencode_load_store(const char *instruction, int index, const char *type){
 }
 
 void gencode_assignment(const char *name, const char *instruction, char *right_type){
-    symbol *variable = NULL;
-    int i;
-    for(i = currentScope; i >= 0; --i){
-        variable = lookup_symbol(name, i);
-        if(variable) break;
-    }
-    if(!variable){
-        errorFlag = 1;
-        sprintf(errorMsg, "Undeclared variable %s", name);
-    }
-    else{
+    symbol *variable = lookup_symbol(name);
+    if(variable){
         if(strcmp(instruction, "")){
-            if(i == 0){
+            if(variable->scope == 0){
                 gencode_global_variable("load", variable->name, variable->data_type, "");
             }
             else{
@@ -737,7 +884,7 @@ void gencode_assignment(const char *name, const char *instruction, char *right_t
             fprintf(file, "\ti2f\n");
         }
 
-        if(i == 0){
+        if(variable->scope == 0){
             gencode_global_variable("store", variable->name, variable->data_type, "");
         }
         else{
@@ -747,7 +894,6 @@ void gencode_assignment(const char *name, const char *instruction, char *right_t
 }
 
 const char *gencode_expression(const char *instruction, const char *left_type, const char *right_type){
-
     if(strcmp(instruction, "rem")){
         if(!strcmp(left_type, "int") && !strcmp(right_type, "int")){
             gencode_arithmetic(instruction, "int");
@@ -772,7 +918,7 @@ const char *gencode_expression(const char *instruction, const char *left_type, c
             return "int";
         }
         else{
-            errorFlag = 1;
+            semanticErrorFlag = 1;
             sprintf(errorMsg, "Modulo operator with floating point operands");
             return "";
         }

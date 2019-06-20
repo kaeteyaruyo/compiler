@@ -9,7 +9,7 @@ char strbuf[256];
 int dumpFlagWithScope = 0;
 
 extern int currentScope;
-extern int errorFlag;
+extern int semanticErrorFlag;
 extern char errorMsg[256];
 extern void dump_symbol(int scope);
 extern void yyerror(char *s);
@@ -79,62 +79,62 @@ id			{letter}+({letter}|{digit})*
  /* Declaration Keywords */
 "void"		{
     CONCAT;
-    yylval.string = strdup(yytext);
+    sprintf(yylval.string, "%s", yytext);
     return VOID;
 }
 "int"		{
     CONCAT;
-    yylval.string = strdup(yytext);
+    sprintf(yylval.string, "%s", yytext);
     return INT;
 }
 "float"  	{
     CONCAT;
-    yylval.string = strdup(yytext);
+    sprintf(yylval.string, "%s", yytext);
     return FLOAT;
 }
 "string"  	{
     CONCAT;
-    yylval.string = strdup(yytext);
+    sprintf(yylval.string, "%s", yytext);
     return STRING;
 }
 "bool"  	{
     CONCAT;
-    yylval.string = strdup(yytext);
+    sprintf(yylval.string, "%s", yytext);
     return BOOL;
 }
 
  /* boolean Keywords */
 "true"      {
     CONCAT;
-    yylval.token.type = strdup("bool");
-    yylval.token.value = strdup("1");
+    sprintf(yylval.token.type, "bool");
+    sprintf(yylval.token.value, "1");
     return TRUE;
 }
 "false"     {
     CONCAT;
-    yylval.token.type = strdup("bool");
-    yylval.token.value = strdup("0");
+    sprintf(yylval.token.type, "bool");
+    sprintf(yylval.token.value, "0");
     return FALSE;
 }
 
  /* Variable ID */
  {id}       {
     CONCAT;
-    yylval.string = strdup(yytext);
+    sprintf(yylval.string, "%s", yytext);
     return ID;
 }
 
  /* Number Constant */
 {integer}	{
     CONCAT;
-    yylval.token.type = strdup("int");
-    yylval.token.value = strdup(yytext);
+    sprintf(yylval.token.type, "int");
+    sprintf(yylval.token.value, "%s", yytext);
     return I_CONST;
 }
 {float}	    {
     CONCAT;
-    yylval.token.type = strdup("float");
-    yylval.token.value = strdup(yytext);
+    sprintf(yylval.token.type, "float");
+    sprintf(yylval.token.value, "%s", yytext);
     return F_CONST;
 }
 
@@ -149,8 +149,8 @@ id			{letter}+({letter}|{digit})*
     BEGIN INITIAL;
     CONCAT;
     strcat(strbuf, yytext);
-    yylval.token.type = strdup("string");
-    yylval.token.value = strdup(strbuf);
+    sprintf(yylval.token.type, "string");
+    sprintf(yylval.token.value, "%s", strbuf);
     return STRING_LITERAL;
 }
 <STRING_STATE>[^"]*		{
@@ -180,9 +180,9 @@ id			{letter}+({letter}|{digit})*
 [\n]        {
     if(strlen(buf) != 0){
         printf("%d: %s\n", yylineno, buf);
-        if(errorFlag > 0){
+        if(semanticErrorFlag > 0){
             yyerror(errorMsg);
-            errorFlag = 0;
+            semanticErrorFlag = 0;
         }
         if(dumpFlagWithScope > 0){
             dump_symbol(dumpFlagWithScope);
